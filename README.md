@@ -39,6 +39,8 @@ pip install timm
 ## Data Preparation
 ```
 python tools/create_data_nusc.py --root-path ./data/nuscenes --out-dir ./data --extra-tag nuscenes_radar --version v1.0
+
+python3 tools/create_data_nusc.py --root-path ../HPR1/nuscenes --out-dir ../HPR1 --extra-tag nuscenes_radar --version v1.0
 ```
 Folder structure
 ```
