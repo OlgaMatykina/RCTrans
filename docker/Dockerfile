@@ -65,3 +65,6 @@ RUN pip install ipython && \
     pip install pccm==0.3.4 && \
     pip install timm && \
     pip3 install wandb
+
+RUN pip install mmcv-full==1.7.0 && \
+    pip install mmengine
