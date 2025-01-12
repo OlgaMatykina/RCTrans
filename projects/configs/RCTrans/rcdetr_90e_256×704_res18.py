@@ -48,9 +48,9 @@ model = dict(
     use_grid_mask=True,
     # img encoder
     img_backbone=dict(
-        init_cfg=dict(
-            type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
-            prefix='backbone.'),       
+        # init_cfg=dict(
+        #     type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
+        #     prefix='backbone.'),       
         type='ResNet',
         depth=18,
         num_stages=4,
@@ -189,8 +189,8 @@ model = dict(
 
 
 dataset_type = 'CustomNuScenesDataset'
-data_root = './data/nuscenes/'
-ann_root = './data/'
+data_root = '../HPR1/nuscenes/'
+ann_root = '../HPR1/'
 file_client_args = dict(backend='disk')
 
 
