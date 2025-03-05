@@ -41,6 +41,8 @@ pip install timm
 python tools/create_data_nusc.py --root-path ./data/nuscenes --out-dir ./data --extra-tag nuscenes_radar --version v1.0
 
 python3 tools/create_data_nusc.py --root-path ../HPR1/nuscenes --out-dir ../HPR1 --extra-tag nuscenes_radar --version v1.0
+
+python3 tools/create_data_nusc.py --root-path ../HPR1/nuscenes --out-dir ../HPR1 --extra-tag nuscenes_radar --version v1.0-mini
 ```
 Folder structure
 ```
@@ -65,11 +67,28 @@ Or you can directly use our pre-generated pickles here. [Val](https://drive.user
 Train
 ```
 export PYTHONPATH=$PYTHONPATH:/xxx/xxx/RCTrans/
+
+export PYTHONPATH=$PYTHONPATH:/home/docker_rctrans/RCTrans/
+
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_swinT.py 8 --work-dir work_dirs/xxx/
+
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py 1 --work-dir work_dirs/rctrans/
+
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_bevloss.py 1 --work-dir work_dirs/rctrans/
+
+bash mmdetection3d/tools/dist_train.sh projects/configs/MyFirstModel/pointpillar.py 1 --work-dir work_dirs/pointpillar/
 ```
 Evaluation
 ```
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_swinT.py ckpts/xxx.pth 8 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py ckpts/res18.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_bevloss.py work_dirs/rctrans/iter_7007.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py work_dirs/rcdetr/iter_39555.pth 1 --eval bbox
+
+bash mmdetection3d/tools/dist_test.sh projects/configs/MyFirstModel/pointpillar.py work_dirs/pointpillar/epoch_1.pth 1 --eval bbox
 ```
 Tracking
 ```
