@@ -53,6 +53,7 @@ class RCDETR(MVXTwoStageDetector):
                  radar_dense_encoder=None,
                  radar_backbone=None,
                  radar_neck=None,
+                 with_bev_sparsity_loss=False,
                  ):
         super(RCDETR, self).__init__(pts_voxel_layer, pts_voxel_encoder,
                              pts_middle_encoder, pts_fusion_layer,
@@ -92,6 +93,7 @@ class RCDETR(MVXTwoStageDetector):
             self.radar_neck = builder.build_neck(radar_neck)
         else:
             self.radar_neck = None
+        self.with_bev_sparsity_loss = with_bev_sparsity_loss
 
     def extract_img_feat(self, img, len_queue=1, training_mode=False):
         """Extract features of images."""
@@ -276,7 +278,11 @@ class RCDETR(MVXTwoStageDetector):
             if self.with_img_roi_head:
                 loss2d_inputs = [gt_bboxes, gt_labels, centers2d, depths, outs_roi, img_metas]
                 losses2d = self.img_roi_head.loss(*loss2d_inputs)
-                losses.update(losses2d) 
+                losses.update(losses2d)
+            if self.with_bev_sparsity_loss:
+                loss_bev_sparsity = self.radar_dense_encoder.loss(data['radar_feats'])
+                losses.update(loss_bev_sparsity)
+
 
             return losses
         else:

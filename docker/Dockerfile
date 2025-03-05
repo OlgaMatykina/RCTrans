@@ -66,5 +66,8 @@ RUN pip install ipython && \
     pip install timm && \
     pip3 install wandb
 
-RUN pip install mmcv-full==1.7.0 && \
+RUN pip install mmcv==1.7.0 -f https://download.openmmlab.com/mmcv/dist/cu111/torch1.9.0/index.html && \
+    pip install mmcv-full==1.7.0 -f https://download.openmmlab.com/mmcv/dist/cu111/torch1.9.0/index.html && \
     pip install mmengine
+
+RUN pip install numpy==1.21.0

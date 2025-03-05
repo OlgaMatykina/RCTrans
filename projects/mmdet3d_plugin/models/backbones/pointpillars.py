@@ -8,6 +8,7 @@ from projects.mmdet3d_plugin.models.utils.positional_encoding import pos2posemb3
 from .self_attention import SelfAttention, PositionEmbeddingLearned
 from .cross_attention import CrossAttention
 
+from projects.mmdet3d_plugin.models.utils.misc import sparsity_score, density_score
 
 
 @MIDDLE_ENCODERS.register_module()
@@ -209,6 +210,7 @@ class Radar_dense_encoder_tf(nn.Module):
         return coord_base
     
     def forward(self, x):
+        print('radar_dense_encoder input density score', density_score(x))
         x1 = self.inc(x)
         x2 = self.down1(x1)
         x3 = self.down2(x2)
@@ -227,4 +229,17 @@ class Radar_dense_encoder_tf(nn.Module):
         x = self.up2(x, x2)
         x = self.up3(x, x1)
 
+        print('radar_dense_encoder output density score', density_score(x))
+
         return x
+    
+    def loss(self, x): #matykina
+        """"Loss function.
+        Args:
+            x (Tensor): BEV after Radar Dense Encoder.
+        Returns:
+            dict[str, Tensor]: A dictionary of loss components.
+        """
+        loss_dict = dict()
+        loss_dict['sparsity_bev_loss'] = torch.tensor(sparsity_score(x)).cuda()
+        return loss_dict

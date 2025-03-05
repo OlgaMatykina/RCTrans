@@ -197,7 +197,7 @@ class RCTransTemporalTransformer(BaseModule):
             temp_pos=temp_pos,
             key_padding_mask=mask,
             attn_masks=[attn_masks, None],
-            reg_branch=reg_branch,
+            reg_branch=reg_branch, #None
             cls_branches=cls_branches,
             reg_branches=reg_branches,
             reference_points=reference_points,

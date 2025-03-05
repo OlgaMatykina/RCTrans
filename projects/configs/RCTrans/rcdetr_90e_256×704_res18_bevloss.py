@@ -44,15 +44,16 @@ input_modality = dict(
     use_external=True)
 model = dict(
     type='RCDETR',
+    with_bev_sparsity_loss = True,
     num_frame_head_grads=num_frame_losses,
     num_frame_backbone_grads=num_frame_losses,
     num_frame_losses=num_frame_losses,
     use_grid_mask=True,
     # img encoder
     img_backbone=dict(
-        init_cfg=dict(
-            type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
-            prefix='backbone.'),       
+        # init_cfg=dict(
+        #     type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
+        #     prefix='backbone.'),       
         type='ResNet',
         depth=18,
         num_stages=4,
@@ -266,7 +267,7 @@ test_pipeline = [
 
 data = dict(
     samples_per_gpu=batch_size,
-    workers_per_gpu=6,
+    workers_per_gpu=4,
     train=dict(
         type=dataset_type,
         data_root=data_root,
@@ -310,14 +311,15 @@ lr_config = dict(
 
 # evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
-evaluation = dict(interval=101, pipeline=test_pipeline)
+# evaluation = dict(interval=101, pipeline=test_pipeline)
+evaluation = dict(interval=num_epochs * num_iters_per_epoch, pipeline=test_pipeline)
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
 checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
 runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
-load_from=None
+load_from = './ckpts/res18.pth'
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
@@ -330,7 +332,7 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='RCTrans',     # Имя эксперимента
+                name='RCTrans with bev loss load from res18.pth',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',

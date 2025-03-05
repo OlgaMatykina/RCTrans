@@ -198,3 +198,13 @@ def transform_reference_points(reference_points, egopose, reverse=False, transla
         matrix[..., :3, 3] = 0.0
     reference_points = (matrix.unsqueeze(1) @ reference_points.unsqueeze(-1)).squeeze(-1)[..., :3]
     return reference_points
+
+
+def sparsity_score(tensor):
+    total_elements = tensor.numel()
+    zero_elements = torch.sum(tensor == 0).item()
+    sparsity = zero_elements / total_elements
+    return sparsity
+
+def density_score(tensor):
+    return 1 - sparsity_score(tensor)

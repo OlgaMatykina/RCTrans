@@ -231,7 +231,8 @@ def _fill_trainval_infos(nusc,
             radar_rec = nusc.get('sample_data', radar_token)
             sweeps = []
 
-            while len(sweeps) < 5:
+            # while len(sweeps) < 5:
+            while len(sweeps) < max_sweeps:
                 if not radar_rec['prev'] == '':
                     radar_path, _, radar_intrin = nusc.get_sample_data(radar_token)
 
