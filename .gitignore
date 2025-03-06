@@ -13,3 +13,6 @@ modelzoo_p/
 iou3d_nms.egg-info/
 new_pic/
 query_pos/
+
+*.pyc
+__pycache__/

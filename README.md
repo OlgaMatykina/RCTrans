@@ -66,6 +66,10 @@ Train
 ```
 export PYTHONPATH=$PYTHONPATH:/xxx/xxx/RCTrans/
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_swinT.py 8 --work-dir work_dirs/xxx/
+
+export PYTHONPATH=$PYTHONPATH:/home/docker_rctrans/RCTrans/
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py 1 --work-dir work_dirs/rctrans/
+
 ```
 Evaluation
 ```
