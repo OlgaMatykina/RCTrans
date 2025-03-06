@@ -14,5 +14,7 @@ iou3d_nms.egg-info/
 new_pic/
 query_pos/
 
-*.pyc
 __pycache__/
+*.pyc
+
+wandb/

@@ -29,6 +29,7 @@ class_names = [
 num_gpus = 1
 batch_size = 6
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
+# num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
 
 queue_length = 1
@@ -48,9 +49,9 @@ model = dict(
     use_grid_mask=True,
     # img encoder
     img_backbone=dict(
-        # init_cfg=dict(
-        #     type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
-        #     prefix='backbone.'),       
+        init_cfg=dict(
+            type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
+            prefix='backbone.'),       
         type='ResNet',
         depth=18,
         num_stages=4,
@@ -283,6 +284,8 @@ data = dict(
         box_type_3d='LiDAR'),
     val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
@@ -306,15 +309,37 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
+# evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
+# evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
+evaluation = dict(interval=101, pipeline=test_pipeline)
+
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
-checkpoint_config = dict(interval=num_iters_per_epoch, max_keep_ckpts=3)
+# checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
+checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
 runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
 load_from=None
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
+
+log_config = dict(
+    interval=5,
+    hooks=[
+        # dict(type='TextLoggerHook'),
+        dict(
+            type='WandbLoggerHook',
+            init_kwargs=dict(
+                project='radar-camera',   # Название проекта в WandB
+                name='RCTrans',     # Имя эксперимента
+                config=dict(                # Дополнительные настройки эксперимента
+                    batch_size=batch_size,
+                    model='rcdetr',
+                )
+            )
+        ),
+    ],
+)
 
 '''
 mAP: 0.4741
