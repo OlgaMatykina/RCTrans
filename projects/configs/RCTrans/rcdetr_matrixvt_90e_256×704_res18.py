@@ -15,6 +15,7 @@ radar_voxel_size = [0.8, 0.8, 8]
 voxel_size = [0.2, 0.2, 8]
 # x y z rcs vx_comp vy_comp x_rms y_rms vx_rms vy_rms
 radar_use_dims = [0, 1, 2, 8, 9, 18]
+lidar_use_dims = [0, 1, 2, 3]
 out_size_factor = 4
 mem_query = 128
 
@@ -26,6 +27,7 @@ class_names = [
     'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
 ]
 
+# num_gpus = 8
 num_gpus = 1
 batch_size = 4
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
@@ -42,11 +44,17 @@ input_modality = dict(
     use_map=False,
     use_external=True)
 model = dict(
-    type='RCDETR',
+    type='RCDETR_MatrixVT',
     num_frame_head_grads=num_frame_losses,
     num_frame_backbone_grads=num_frame_losses,
     num_frame_losses=num_frame_losses,
     use_grid_mask=True,
+    # depth_loss=dict(type='DepthLoss', 
+    #                 depth_channels=64, 
+    #                 downsample_factor=16,  
+    #                 d_bound=[2.0, 58.0, 0.5],  # Categorical Depth bounds and division (m)
+    #                 loss_weight=3.0,
+    #                 ),
     # img encoder
     img_backbone=dict(
         init_cfg=dict(
@@ -116,7 +124,7 @@ model = dict(
     ),
     # detect head
     pts_bbox_head=dict(
-        type='RCTransHead',
+        type='RCTransBEVHead',
         num_classes=10,
         in_channels_img=256,
         in_channels_radar=64,
@@ -190,8 +198,8 @@ model = dict(
 
 
 dataset_type = 'CustomNuScenesDataset'
-data_root = '../HPR1/nuScenes2d/nuscenes/'
-ann_root = '../HPR1/nuScenes2d/'
+data_root = '../HPR1/nuscenes/'
+ann_root = '../HPR1/'
 file_client_args = dict(backend='disk')
 
 
@@ -213,6 +221,13 @@ train_pipeline = [
         use_num=6,
         use_dim=radar_use_dims,
         max_num=2048),
+    dict(
+        type='LoadLidarPointsFromFile',
+        coord_type='LIDAR',
+        load_dim=5,
+        use_dim=lidar_use_dims,
+    ),
+    dict(type='GenerateLidarDepth'),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_bbox=True,
         with_label=True, with_bbox_depth=True),
     dict(type='RadarRangeFilter', radar_range=bev_range),
@@ -230,7 +245,7 @@ train_pipeline = [
     dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='PETRFormatBundle3D', class_names=class_names, collect_keys=collect_keys + ['prev_exists']),
     dict(type='MyTransform',),
-    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists'] + collect_keys,
+    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists', 'lidar', 'depth_maps'] + collect_keys,
              meta_keys=('filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token', 'gt_bboxes_3d','gt_labels_3d','lidar2img','radar_aug_matrix', 'pcd_scale_factor'))
 ]
 test_pipeline = [
@@ -297,7 +312,8 @@ optimizer = dict(
         }),
     weight_decay=0.01)
 
-optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
+# optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=8, grad_clip=dict(max_norm=35, norm_type=2))
 
 # learning policy
 lr_config = dict(
@@ -308,12 +324,12 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-# evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
+evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
-checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
+checkpoint_config = dict(interval=10001, max_keep_ckpts=3)
 runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
 load_from=None

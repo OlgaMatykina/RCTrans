@@ -48,6 +48,17 @@ class PadMultiViewImage():
         results['pad_shape'] = [img.shape for img in padded_img]
         results['pad_fix_size'] = self.size
         results['pad_size_divisor'] = self.size_divisor
+
+    def _pad_depth_map(self, results):
+        """Pad depth maps according to ``self.size``."""
+        if self.size is not None:
+            padded_img = [mmcv.impad(img,
+                                shape = self.size, pad_val=self.pad_val) for img in results['depth_maps']]
+        elif self.size_divisor is not None:
+            padded_img = [mmcv.impad_to_multiple(img,
+                                self.size_divisor, pad_val=self.pad_val) for img in results['depth_maps']]
+        results['depth_maps'] = padded_img
+
     
     def __call__(self, results):
         """Call function to pad images, masks, semantic segmentation maps.
@@ -57,6 +68,7 @@ class PadMultiViewImage():
             dict: Updated result dict.
         """
         self._pad_img(results)
+        self._pad_depth_map(results)
         return results
 
 
@@ -115,13 +127,19 @@ class ResizeCropFlipRotImage():
 
     def __call__(self, results):
 
+        # print(results.keys())
+
         imgs = results['img']
+        depth_maps = results['depth_maps']
         N = len(imgs)
         new_imgs = []
+        new_depth_maps = []
         new_gt_bboxes = []
         new_centers2d = []
         new_gt_labels = []
         new_depths = []
+        ida_mats = []  # Список для хранения матриц ida_mat
+
         assert self.data_aug_conf['rot_lim'] == (0.0, 0.0), "Rotation is not currently supported"
 
         resize, resize_dims, crop, flip, rotate = self._sample_augmentation()
@@ -129,6 +147,7 @@ class ResizeCropFlipRotImage():
 
         for i in range(N):
             img = Image.fromarray(np.uint8(imgs[i]))
+            depth_map = Image.fromarray(np.uint8(depth_maps[i]))
             img, ida_mat = self._img_transform(
                 img,
                 resize=resize,
@@ -137,6 +156,16 @@ class ResizeCropFlipRotImage():
                 flip=flip,
                 rotate=rotate,
             )
+
+            depth_map, _ = self._img_transform(
+                depth_map,
+                resize=resize,
+                resize_dims=resize_dims,
+                crop=crop,
+                flip=flip,
+                rotate=rotate,
+            )
+
             if self.training and self.with_2d: # sync_2d bbox labels
                 gt_bboxes = results['gt_bboxes'][i]
                 centers2d = results['centers2d'][i]
@@ -161,12 +190,19 @@ class ResizeCropFlipRotImage():
                 new_depths.append(depths)
 
             new_imgs.append(np.array(img).astype(np.float32))
+            new_depth_maps.append(np.array(depth_map).astype(np.float32))
+
+            ida_mat_ext = torch.eye(4, dtype=ida_mat.dtype, device=ida_mat.device)  # Создаем 4x4 единичную матрицу
+            ida_mat_ext[:3, :3] = ida_mat
+            ida_mats.append(np.array(ida_mat_ext).astype(np.float32))  # Сохраняем матрицу ida_mat
             results['intrinsics'][i][:3, :3] = ida_mat @ results['intrinsics'][i][:3, :3]
         results['gt_bboxes'] = new_gt_bboxes
         results['centers2d'] = new_centers2d
         results['gt_labels'] = new_gt_labels
         results['depths'] = new_depths
         results['img'] = new_imgs
+        results['depth_maps'] = new_depth_maps
+        results['ida_mat'] = ida_mats  # Добавляем в results
         results['lidar2img'] = [results['intrinsics'][i] @ results['extrinsics'][i] for i in range(len(results['extrinsics']))]
 
         return results

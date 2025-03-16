@@ -4,3 +4,4 @@ from .streampetr_head import StreamPETRHead
 from .sparse_head import SparseHead
 from .yolox_head import YOLOXHeadCustom
 from .rctrans_head import RCTransHead
+from .rctrans_bev_head import RCTransBEVHead

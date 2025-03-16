@@ -8,9 +8,12 @@ import random as rdm
 from mmcv.utils import build_from_cfg
 from mmdet.datasets.builder import PIPELINES
 from mmdet.datasets.pipelines import RandomFlip
+from mmdet3d.datasets.pipelines import LoadPointsFromFile
 from mmdet3d.core.bbox import box_np_ops
+from mmdet3d.core.points import get_points_type
 from mmdet3d.datasets.builder import OBJECTSAMPLERS
-from nuscenes.utils.data_classes import RadarPointCloud
+from nuscenes.utils.data_classes import RadarPointCloud, LidarPointCloud
+from nuscenes.utils.geometry_utils import view_points
 from projects.mmdet3d_plugin.datasets.pipelines.radar_points import RadarPoints
 from mmcv.parallel.data_container import DataContainer
 from mmdet3d.core.bbox import (CameraInstance3DBoxes, DepthInstance3DBoxes,
@@ -201,6 +204,8 @@ class RadarRangeFilter(object):
         """
         assert 'radar' in input_dict
         radar = input_dict["radar"]
+
+        # print('RADAR TYPE IN RANGE FITER', type(radar))
     
         radar_mask = radar.in_range_bev(self.radar_range)
         clean_radar = radar[radar_mask]
@@ -265,6 +270,9 @@ class MyTransform:
     def __call__(self, results):
         radar = DataContainer(results['radar'].tensor)
         results['radar'] = radar
+
+        lidar = DataContainer(results['lidar'].tensor)
+        results['lidar'] = lidar
         return results
 
 @PIPELINES.register_module()
@@ -549,3 +557,137 @@ class BEVFusionGlobalRotScaleTrans(GlobalRotScaleTrans):
             'radar_aug_matrix'] = radar_augs @ input_dict['radar_aug_matrix']
 
         return input_dict
+    
+
+@PIPELINES.register_module()
+class LoadLidarPointsFromFile(LoadPointsFromFile):
+    """Load lidar points from files"""
+    def __call__(self, results):
+        """Call function to load points data from file.
+
+        Args:
+            results (dict): Result dict containing point clouds data.
+
+        Returns:
+            dict: The result dict containing the point clouds data.
+                Added key and value are described below.
+
+                - points (:obj:`BasePoints`): Point clouds data.
+        """
+        # print(results.keys())
+        # print(results['filename'])
+        pts_filename = results['pts_filename']
+        points = self._load_points(pts_filename)
+        points = points.reshape(-1, self.load_dim)
+        points = points[:, self.use_dim]
+        attribute_dims = None
+
+        if self.shift_height:
+            floor_height = np.percentile(points[:, 2], 0.99)
+            height = points[:, 2] - floor_height
+            points = np.concatenate(
+                [points[:, :3],
+                 np.expand_dims(height, 1), points[:, 3:]], 1)
+            attribute_dims = dict(height=3)
+
+        if self.use_color:
+            assert len(self.use_dim) >= 6
+            if attribute_dims is None:
+                attribute_dims = dict()
+            attribute_dims.update(
+                dict(color=[
+                    points.shape[1] - 3,
+                    points.shape[1] - 2,
+                    points.shape[1] - 1,
+                ]))
+
+        points_class = get_points_type(self.coord_type)
+        points = points_class(
+            points, points_dim=points.shape[-1], attribute_dims=attribute_dims)
+        results['lidar'] = points
+
+        return results
+
+
+@PIPELINES.register_module()
+class GenerateLidarDepth():
+    def __init__(self, min_dist=0.0):
+        self.min_dist = min_dist
+
+    def __call__(self, results):
+        lidar_points = results['lidar'].tensor  # (N, 3) or (N, 4)
+        images = results['img']  # List of 6 images
+        intrinsics = results['intrinsics']  # List of 6 (4, 4) matrices
+        extrinsics = results['extrinsics']  # List of 6 (4, 4) matrices
+
+        # print('images', type(images), len(images), type(images[0]), images[0].shape)
+        
+        depth_maps = []
+        for i in range(len(images)):
+            depth_map = get_lidar_depth(lidar_points.detach(), images[i], extrinsics[i], intrinsics[i])
+            depth_maps.append(depth_map)
+        
+        results['depth_maps'] = depth_maps
+        return results
+
+
+def get_lidar_depth(lidar_points, img, extirnsic, intrinsic):
+    # print(lidar_points.shape)
+    pts_img, depth = map_pointcloud_to_image(
+        lidar_points, img, extirnsic, intrinsic)
+    
+    depth_coords = pts_img[:2, :].T.astype(np.int16)
+
+    # print('depth_coords', depth_coords.shape)
+
+    depth_map = np.zeros(img.shape[0:2])
+    depth_map[depth_coords[:, 0], depth_coords[:, 1]] = depth
+
+    # Возвращаем карту глубины как тензор
+    return torch.Tensor(depth_map)
+    # return np.concatenate([pts_img[:2, :].T, depth[:, None]],
+    #                         axis=1).astype(np.float32)
+
+def map_pointcloud_to_image(
+    lidar_points,
+    img,
+    extirnsic, 
+    intrinsic,
+    min_dist: float = 0.0,
+):
+
+    # Points live in the point sensor frame. So they need to be
+    # transformed via global to the image plane.
+    # First step: transform the pointcloud to the ego vehicle
+    # frame for the timestamp of the sweep.
+
+    lidar_points = lidar_points.cpu().numpy()
+
+    lidar_points = LidarPointCloud(lidar_points.T)
+    
+    lidar_points.transform(extirnsic)
+
+    depths = lidar_points.points[2, :]
+    coloring = depths
+
+    # Take the actual picture (matrix multiplication with camera-matrix
+    # + renormalization).
+    points = view_points(lidar_points.points[:3, :],
+                         np.array(intrinsic),
+                         normalize=True)
+
+    # Remove points that are either outside or behind the camera.
+    # Leave a margin of 1 pixel for aesthetic reasons. Also make
+    # sure points are at least 1m in front of the camera to avoid
+    # seeing the lidar points on the camera casing for non-keyframes
+    # which are slightly out of sync.
+    mask = np.ones(depths.shape[0], dtype=bool)
+    mask = np.logical_and(mask, depths > min_dist)
+    mask = np.logical_and(mask, points[0, :] > 1)
+    mask = np.logical_and(mask, points[0, :] < img.shape[0] - 1)
+    mask = np.logical_and(mask, points[1, :] > 1)
+    mask = np.logical_and(mask, points[1, :] < img.shape[1] - 1)
+    points = points[:, mask]
+    coloring = coloring[mask]
+
+    return points, coloring

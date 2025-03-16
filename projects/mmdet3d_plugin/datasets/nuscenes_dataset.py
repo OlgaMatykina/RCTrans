@@ -130,7 +130,7 @@ class CustomNuScenesDataset(NuScenesDataset):
         
     def union2one(self, queue):
         for key in self.collect_keys:
-            if key not in ['img_metas', 'radar']:
+            if key not in ['img_metas', 'radar', 'lidar']:
                 queue[-1][key] = DC(torch.stack([each[key].data for each in queue]), cpu_only=False, stack=True, pad_dims=None)
             elif key == 'img_metas':
                 queue[-1][key] = DC([each[key].data for each in queue], cpu_only=True)
@@ -195,6 +195,10 @@ class CustomNuScenesDataset(NuScenesDataset):
             intrinsics = []
             extrinsics = []
             img_timestamp = []
+            sensor2ego_mats = []
+
+            # lidar_depths = []
+
             for cam_type, cam_info in info['cams'].items():
                 img_timestamp.append(cam_info['timestamp'] / 1e6)
                 image_paths.append(cam_info['data_path'])
@@ -211,6 +215,32 @@ class CustomNuScenesDataset(NuScenesDataset):
                 intrinsics.append(viewpad)
                 extrinsics.append(lidar2cam_rt)
                 lidar2img_rts.append(lidar2img_rt)
+
+
+                # sweep sensor to sweep ego
+                sweepsensor2sweepego_r = Quaternion(cam_info['sensor2ego_rotation']).rotation_matrix
+                sweepsensor2sweepego_t = cam_info['sensor2ego_translation']
+                sweepsensor2sweepego_rt = convert_egopose_to_matrix_numpy(sweepsensor2sweepego_r, sweepsensor2sweepego_t)
+
+                # sweep ego to global
+                sweepego2global_r = Quaternion(cam_info['ego2global_rotation']).rotation_matrix
+                sweepego2global_t = cam_info['ego2global_translation']
+                sweepego2global_rt = convert_egopose_to_matrix_numpy(sweepego2global_r, sweepego2global_t)
+
+                # global sensor to cur ego
+                keyego2global_r = Quaternion(cam_info['ego2global_rotation']).rotation_matrix
+                keyego2global_t = cam_info['ego2global_translation']
+                keyego2global_rt = convert_egopose_to_matrix_numpy(keyego2global_r, keyego2global_t)
+                global2keyego_rt = invert_matrix_egopose_numpy(keyego2global_rt)
+
+                sweepsensor2keyego = global2keyego_rt @ sweepego2global_rt @\
+                    sweepsensor2sweepego_rt
+                sensor2ego_mats.append(sweepsensor2keyego)
+
+                # point_depth = get_lidar_depth(
+                #         sweep_lidar_points[sweep_idx], img,
+                #         info, cam_info)
+                # lidar_depths.append(point_depth)
                 
             if not self.test_mode: # for seq_mode
                 prev_exists  = not (index == 0 or self.flag[index - 1] != self.flag[index])
@@ -225,6 +255,7 @@ class CustomNuScenesDataset(NuScenesDataset):
                     intrinsics=intrinsics,
                     extrinsics=extrinsics,
                     prev_exists=prev_exists,
+                    sensor2ego=sensor2ego_mats,
                 ))
         if not self.test_mode:
             annos = self.get_ann_info(index)
@@ -234,7 +265,9 @@ class CustomNuScenesDataset(NuScenesDataset):
                     labels=info['labels2d'],
                     centers2d=info['centers2d'],
                     depths=info['depths'],
-                    bboxes_ignore=info['bboxes_ignore'])
+                    bboxes_ignore=info['bboxes_ignore'],
+                    # lidar_depth=lidar_depths
+                    )
             )
             input_dict['ann_info'] = annos
             

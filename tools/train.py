@@ -27,6 +27,10 @@ from mmdet.apis import set_random_seed
 from mmseg import __version__ as mmseg_version
 from mmcv.utils import TORCH_VERSION, digit_version
 
+# torch.autograd.set_detect_anomaly(True)
+# from memory_profiler import profile
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
     parser.add_argument('config', help='train config file path')
@@ -96,6 +100,7 @@ def parse_args():
     return args
 
 
+# @profile
 def main():
     args = parse_args()
 
