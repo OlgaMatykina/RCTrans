@@ -27,7 +27,7 @@ class_names = [
 ]
 
 num_gpus = 1
-batch_size = 6
+batch_size = 4
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -290,7 +290,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW', 
-    lr=4e-4, # bs 8: 2e-4 || bs 16: 4e-4
+    lr=1e-5, #bs 4 gpu 1 # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -307,13 +307,13 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-# evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
+evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
-evaluation = dict(interval=101, pipeline=test_pipeline)
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
-checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
+checkpoint_config = dict(interval=num_iters_per_epoch//10*5+1, max_keep_ckpts=3)
+
 runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
 load_from=None
@@ -324,7 +324,7 @@ custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
 log_config = dict(
     interval=5,
     hooks=[
-        # dict(type='TextLoggerHook'),
+        dict(type='TextLoggerHook'),
         dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
