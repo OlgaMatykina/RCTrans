@@ -72,7 +72,9 @@ export PYTHONPATH=$PYTHONPATH:/home/docker_rctrans/RCTrans/
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_swinT.py 8 --work-dir work_dirs/xxx/
 
-bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py 1 --work-dir work_dirs/rctrans/
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py 1 --work-dir work_dirs/rctrans_transform/
+
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/rctrans_transform/
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_bevloss.py 1 --work-dir work_dirs/rctrans/
 
@@ -85,6 +87,8 @@ bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_swinT.py ck
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py ckpts/res18.pth 1 --eval bbox
 
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_bevloss.py work_dirs/rctrans/iter_7007.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py work_dirs/rctrans_transform/iter_30003.pth 1 --eval bbox
 
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py work_dirs/rcdetr/iter_39555.pth 1 --eval bbox
 

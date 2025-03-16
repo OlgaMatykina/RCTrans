@@ -77,6 +77,7 @@ class FlashAttention(nn.Module):
                 softmax_scale=self.softmax_scale, causal=causal
             )
             output = rearrange(output, '(b s) ... -> b s ...', b=batch_size)
+            # print('OUTPUT SHAPE', output.shape)
         else:
             nheads = kv.shape[-2]
             q = rearrange(q, 'b s ... -> (b s) ...')

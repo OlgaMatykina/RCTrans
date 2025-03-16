@@ -11,17 +11,21 @@
 # ------------------------------------------------------------------------
 import torch
 from mmcv.runner import force_fp32, auto_fp16
-from mmdet.models import DETECTORS
+from mmdet.models import DETECTORS, build_loss
 from mmdet3d.core import bbox3d2result
 from mmdet3d.models.detectors.mvx_two_stage import MVXTwoStageDetector
 from projects.mmdet3d_plugin.models.utils.grid_mask import GridMask
 from projects.mmdet3d_plugin.models.utils.misc import locations
 from mmdet3d.models import builder
 import torch.nn.functional as F
+from torch.cuda.amp import autocast
 from projects.mmdet3d_plugin import SPConvVoxelization
 
+from projects.mmdet3d_plugin.models.backbones.matrixvt_slim import MatrixVT
+
+
 @DETECTORS.register_module()
-class RCDETR(MVXTwoStageDetector):
+class RCDETR_MatrixVT(MVXTwoStageDetector):
     """RCDETR."""
 
     def __init__(self,
@@ -53,8 +57,9 @@ class RCDETR(MVXTwoStageDetector):
                  radar_dense_encoder=None,
                  radar_backbone=None,
                  radar_neck=None,
+                 depth_loss=None,
                  ):
-        super(RCDETR, self).__init__(pts_voxel_layer, pts_voxel_encoder,
+        super(RCDETR_MatrixVT, self).__init__(pts_voxel_layer, pts_voxel_encoder,
                              pts_middle_encoder, pts_fusion_layer,
                              img_backbone, pts_backbone, img_neck, pts_neck,
                              pts_bbox_head, img_roi_head, img_rpn_head,
@@ -92,6 +97,11 @@ class RCDETR(MVXTwoStageDetector):
             self.radar_neck = builder.build_neck(radar_neck)
         else:
             self.radar_neck = None
+
+        if depth_loss is not None:
+            self.depth_loss = build_loss(depth_loss)
+        else:
+            self.depth_loss = None
 
     def extract_img_feat(self, img, len_queue=1, training_mode=False):
         """Extract features of images."""
@@ -132,8 +142,67 @@ class RCDETR(MVXTwoStageDetector):
         else:
             img_feats_reshaped = img_feats[self.position_level].view(B, int(BN/B/len_queue), C, H, W)
 
-        print('AFTER ALL IMAGE FEATURES SHAPE', img_feats_reshaped.shape)
+        # print('AFTER ALL IMAGE FEATURES SHAPE', img_feats_reshaped.shape)
+        # print('IDA MAT SHAPE', ida_mat.shape)
+        # print('INTRINSICS SHAPE', intrinsics.shape)
+        # print('SENSOR2EGO SHAPE', sensor2ego.shape)
+
+
         return img_feats_reshaped
+    
+    def img_feats_to_bev(self, img_feats, ida_mat, intrinsics, sensor2ego):
+        self.downsample_factor = 16
+        self.dbound = [2.0, 58.0, 0.5]
+        self.depth_channels = int((self.dbound[1] - self.dbound[0]) / self.dbound[2])
+        backbone_conf = {
+            'x_bound': [-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
+            'y_bound': [-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
+            'z_bound': [-5, 3, 8],  # BEV grids bounds and size (m)
+            'd_bound': [2.0, 58.0,
+                        0.5],  # Categorical Depth bounds and division (m)
+            'final_dim': (256, 704),  # img size for model input (pix)
+            'output_channels':
+            64,  # BEV feature channels
+            'downsample_factor':
+            16,  # ds factor of the feature to be projected to BEV (e.g. 256x704 -> 16x44)  # noqa
+            'img_backbone_conf':
+            dict(
+                type='ResNet',
+                depth=18,
+                frozen_stages=-1,
+                out_indices=[2],
+                norm_eval=False,
+                init_cfg=dict(type='Pretrained',
+                            checkpoint='torchvision://resnet18'),
+            ),
+            'img_neck_conf':
+            dict(
+                type='SECONDFPN',
+                in_channels=[256],
+                upsample_strides=[1],
+                out_channels=[256],
+            ),
+            'depth_net_conf':
+            dict(in_channels=256, mid_channels=256),
+        }
+
+        model = MatrixVT(**backbone_conf).to(img_feats.device)
+        # for inference and deployment where intrin & extrin mats are static
+        # model.static_mat = model.get_proj_mat(mats_dict)
+
+        bev_feature, depth = model(
+            img_feats, {
+                'sensor2ego_mats': sensor2ego,
+                'intrin_mats': intrinsics,
+                'ida_mats': ida_mat,
+                # 'sensor2sensor_mats': torch.rand((1, 1, 6, 4, 4)),
+                'bda_mat': torch.eye(4).unsqueeze(0).repeat(img_feats.shape[0], 1, 1).to(intrinsics.device),
+            },
+            is_return_depth=True)
+
+        print('BEV SHAPE', bev_feature.shape, 'DEPTH SHAPE', depth.shape)
+
+        return bev_feature, depth
 
     @force_fp32(apply_to=('radar'))
     def extract_radar_feat(self, radar):
@@ -210,7 +279,7 @@ class RCDETR(MVXTwoStageDetector):
             return_losses = False
             data_t = dict()
             for key in data:
-                if key not in ['radar', 'radar_feats']:
+                if key not in ['radar', 'radar_feats', 'bev_feats', 'lidar', 'depth_maps']:
                     data_t[key] = data[key][:, i] 
                 else:
                     data_t[key] = data[key]
@@ -222,6 +291,10 @@ class RCDETR(MVXTwoStageDetector):
             loss = self.forward_pts_train(gt_bboxes_3d[i],
                                         gt_labels_3d[i], gt_bboxes[i],
                                         gt_labels[i], img_metas[i], centers2d[i], depths[i], requires_grad=requires_grad,return_losses=return_losses,**data_t)
+
+            # depth_loss = self.loss_depth(data['depth_maps'], data['depth_preds'])
+            depth_loss = self.get_depth_loss(data['depth_maps'], data['depth_preds'])
+            losses['frame_'+str(i)+'_depth_loss'] = depth_loss
             if loss is not None:
                 for key, value in loss.items():
                     losses['frame_'+str(i)+"_"+key] = value
@@ -303,16 +376,13 @@ class RCDETR(MVXTwoStageDetector):
         list[list[dict]]), with the outer list indicating test time
         augmentations.
         """
-        print('DATA KEYS', data.keys())
-        for key, value in data.items():
-            if key != 'rescale':
-                try:
-                    print(key, len(value), len(value[0]), value[0][0].shape)
-                except:
-                    continue
-            # if key == 'img':
-            #     print(key, len(value), value.shape)
-
+        # print('DATA KEYS', data.keys())
+        # for key, value in data.items():
+        #     if key != 'rescale' and key != 'img':
+        #         try:
+        #             print(key, len(value), len(value[0]), value[0][0].shape)
+        #         except:
+        #             continue
         if return_loss:
             for key in ['gt_bboxes_3d', 'gt_labels_3d', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'img_metas']:
                 data[key] = list(zip(*data[key]))
@@ -360,19 +430,41 @@ class RCDETR(MVXTwoStageDetector):
         T = data['img'].size(1)
         prev_img = data['img'][:, :-self.num_frame_backbone_grads]
         rec_img = data['img'][:, -self.num_frame_backbone_grads:]
+
+        ida_mat = data['ida_mat'][:, -self.num_frame_backbone_grads:]
+        intrinsics = data['intrinsics'][:, -self.num_frame_backbone_grads:]
+        sensor2ego = data['sensor2ego'][:, -self.num_frame_backbone_grads:]
+
+        prev_ida_mat = data['ida_mat'][:, :-self.num_frame_backbone_grads]
+        prev_intrinsics = data['intrinsics'][:, :-self.num_frame_backbone_grads]
+        prev_sensor2ego = data['sensor2ego'][:, :-self.num_frame_backbone_grads]
+
         rec_radar = data['radar']
         rec_img_feats, rec_radar_feats = self.extract_feat(rec_img, rec_radar, self.num_frame_backbone_grads)
+        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego)
         
         if T-self.num_frame_backbone_grads > 0:
             self.eval()
             with torch.no_grad():
                 prev_img_feats = self.extract_feat(prev_img, None, T-self.num_frame_backbone_grads, True)
+                prev_bev_feats = self.img_feats_to_bev(prev_img_feats, prev_ida_mat, prev_intrinsics, prev_sensor2ego)
+
             self.train()
             data['img_feats'] = torch.cat([prev_img_feats, rec_img_feats], dim=1)
+
+            print('prev_bev_feats', prev_bev_feats.shape)
+            print('bev_feats', bev_feats.shape)
+            data['bev_feats'] = torch.cat([prev_bev_feats, bev_feats], dim=1)
+            print('cat bev_feats', data['bev_feats'].shape)
+
             data['radar_feats'] = rec_radar_feats
         else:
             data['img_feats'] = rec_img_feats
+            data['bev_feats'] = bev_feats
+            print('bev_feats', bev_feats.shape)
             data['radar_feats'] = rec_radar_feats
+        
+        data['depth_preds'] = depth
 
         losses = self.obtain_history_memory(gt_bboxes_3d,
                         gt_labels_3d, gt_bboxes,
@@ -442,4 +534,60 @@ class RCDETR(MVXTwoStageDetector):
         for result_dict, pts_bbox in zip(bbox_list, bbox_pts):
             result_dict['pts_bbox'] = pts_bbox
         return bbox_list
+
+    def get_depth_loss(self, depth_labels, depth_preds):
+        depth_labels = self.get_downsampled_gt_depth(depth_labels)
+        depth_preds = depth_preds.permute(0, 2, 3, 1).contiguous().view(
+            -1, self.depth_channels)
+        fg_mask = torch.max(depth_labels, dim=1).values > 0.0
+
+        with autocast(enabled=False):
+            depth_loss = (F.binary_cross_entropy(
+                depth_preds[fg_mask],
+                depth_labels[fg_mask],
+                reduction='none',
+            ).sum() / max(1.0, fg_mask.sum()))
+
+        return 3.0 * depth_loss
+
+    def get_downsampled_gt_depth(self, gt_depths):
+        """
+        Input:
+            gt_depths: [B, N, H, W]
+        Output:
+            gt_depths: [B*N*h*w, d]
+        """
+
+        # print(type(gt_depths), len(gt_depths), type(gt_depths[0]), gt_depths[0].shape)
+        gt_depths = torch.stack(gt_depths, dim=0)
+
+        B, N, H, W = gt_depths.shape
+        gt_depths = gt_depths.view(
+            B * N,
+            H // self.downsample_factor,
+            self.downsample_factor,
+            W // self.downsample_factor,
+            self.downsample_factor,
+            1,
+        )
+        gt_depths = gt_depths.permute(0, 1, 3, 5, 2, 4).contiguous()
+        gt_depths = gt_depths.view(
+            -1, self.downsample_factor * self.downsample_factor)
+        gt_depths_tmp = torch.where(gt_depths == 0.0,
+                                    1e5 * torch.ones_like(gt_depths),
+                                    gt_depths)
+        gt_depths = torch.min(gt_depths_tmp, dim=-1).values
+        gt_depths = gt_depths.view(B * N, H // self.downsample_factor,
+                                   W // self.downsample_factor)
+
+        gt_depths = (gt_depths -
+                     (self.dbound[0] - self.dbound[2])) / self.dbound[2]
+        gt_depths = torch.where(
+            (gt_depths < self.depth_channels + 1) & (gt_depths >= 0.0),
+            gt_depths, torch.zeros_like(gt_depths))
+        gt_depths = F.one_hot(gt_depths.long(),
+                              num_classes=self.depth_channels + 1).view(
+                                  -1, self.depth_channels + 1)[:, 1:]
+
+        return gt_depths.float()
     

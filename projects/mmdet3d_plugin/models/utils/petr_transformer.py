@@ -711,6 +711,13 @@ class PETRTemporalDecoderLayer(BaseModule):
                 else:
                     temp_key = temp_value = query
                     temp_pos = query_pos
+
+                # print('PETR INNER SHAPE',
+                    # query.shape,
+                    # temp_key.shape,
+                    # temp_value.shape,
+                    # query_pos.shape,
+                    # temp_pos.shape,)
                 query = self.attentions[attn_index](
                     query,
                     temp_key,
@@ -768,6 +775,17 @@ class PETRTemporalDecoderLayer(BaseModule):
         """
 
         if self.use_checkpoint and self.training:
+            # print("PETR SHAPE",
+                # query.shape,
+                # key.shape,
+                # value.shape,
+                # query_pos.shape,
+                # key_pos.shape,
+                # temp_memory.shape,
+                # temp_pos.shape,
+                # # query_key_padding_mask.shape,
+                # # key_padding_mask.shape,
+                #   )
             x = cp.checkpoint(
                 self._forward, 
                 query,

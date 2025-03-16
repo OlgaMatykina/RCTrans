@@ -64,7 +64,8 @@ RUN pip install ipython && \
     pip install ccimport==0.3.7 && \
     pip install pccm==0.3.4 && \
     pip install timm && \
-    pip3 install wandb
+    pip3 install wandb && \
+    pip install pytorch-lightning==1.6.0
 
 RUN pip install mmcv-full==1.7.0 && \
     pip install mmengine

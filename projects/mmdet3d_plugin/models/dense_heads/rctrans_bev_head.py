@@ -41,7 +41,7 @@ def pos2embed(pos, num_pos_feats=128, temperature=10000):
     return posemb
 
 @HEADS.register_module()
-class RCTransHead(AnchorFreeHead):
+class RCTransBEVHead(AnchorFreeHead):
     """Implements the DETR transformer head.
     See `paper: End-to-End Object Detection with Transformers
     <https://arxiv.org/pdf/2005.12872>`_ for details.
@@ -144,7 +144,7 @@ class RCTransHead(AnchorFreeHead):
         self.bg_cls_weight = 0
         self.sync_cls_avg_factor = sync_cls_avg_factor
         class_weight = loss_cls.get('class_weight', None)
-        if class_weight is not None and (self.__class__ is RCTransHead):
+        if class_weight is not None and (self.__class__ is RCTransBEVHead):
             assert isinstance(class_weight, float), 'Expected ' \
                 'class_weight to have type float. Found ' \
                 f'{type(class_weight)}.'
@@ -206,7 +206,7 @@ class RCTransHead(AnchorFreeHead):
                                        dict(type='ReLU', inplace=True))
         self.num_pred = 6
         self.normedlinear = normedlinear
-        super(RCTransHead, self).__init__(num_classes, in_channels, init_cfg = init_cfg)
+        super(RCTransBEVHead, self).__init__(num_classes, in_channels, init_cfg = init_cfg)
 
         self.loss_cls = build_loss(loss_cls)
         self.loss_bbox = build_loss(loss_bbox)
@@ -277,6 +277,14 @@ class RCTransHead(AnchorFreeHead):
         self.memory_embed_img = nn.Sequential(
                 # nn.Linear(self.in_channels_img, self.embed_dims),
                 nn.Conv2d(self.in_channels_img, self.embed_dims, 3, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(self.embed_dims, self.embed_dims, 3, padding=1),
+
+            )
+        
+        self.memory_embed_img_bev = nn.Sequential(
+                # nn.Linear(self.in_channels_img, self.embed_dims),
+                nn.Conv2d(self.in_channels_radar, self.embed_dims, 3, padding=1),
                 nn.ReLU(),
                 nn.Conv2d(self.embed_dims, self.embed_dims, 3, padding=1),
 
@@ -569,7 +577,7 @@ class RCTransHead(AnchorFreeHead):
 
         # Names of some parameters in has been changed.
         version = local_metadata.get('version', None)
-        if (version is None or version < 2) and self.__class__ is RCTransHead:
+        if (version is None or version < 2) and self.__class__ is RCTransBEVHead:
             convert_dict = {
                 '.self_attn.': '.attentions.0.',
                 # '.ffn.': '.ffns.0.',
@@ -693,17 +701,26 @@ class RCTransHead(AnchorFreeHead):
         # zero init the memory bank
         self.pre_update_memory(data)
         # new code #
+        x_img_bev = data['bev_feats']
         x_img = data['img_feats']
 
-      # print('RCTrans Head IMG FEATURES SHAPE', x_img.shape)
+
+        print('RCTrans Head BEV FEATURES SHAPE', x_img_bev.shape)
+        print('RCTrans Head IMG FEATURES SHAPE', x_img.shape)
+
 
         x_radar = data['radar_feats']
 
-      # print('RCTrans Head RADAR FEATURES SHAPE', x_radar.shape)
+        print('RCTrans Head RADAR FEATURES SHAPE', x_radar.shape)
 
         B, N, C, H, W = x_img.shape
+
+        # B, C, H, W = x_img_bev.shape
+
         
         memory_img = self.memory_embed_img(x_img.reshape(B*N, C, H, W))
+        memory_img_bev = self.memory_embed_img_bev(x_img_bev)
+
       # print('RCTrans Head MEMORY IMG SHAPE', memory_img.shape)
 
         memory_radar = self.memory_embed_radar(x_radar)
@@ -712,26 +729,29 @@ class RCTransHead(AnchorFreeHead):
         rv_pos_embeds = self._rv_pe(memory_img, img_metas)
       # print('RCTrans Head RV POS EMBEDS SHAPE', rv_pos_embeds.shape)
 
+        imbev_pos_embeds = self.bev_embedding(pos2embed(self.coords_bev(x_img_bev).to(x_img_bev.device), num_pos_feats=self.hidden_dim))
         bev_pos_embeds = self.bev_embedding(pos2embed(self.coords_bev(x_radar).to(x_radar.device), num_pos_feats=self.hidden_dim))
       # print('RCTrans Head BEV POS EMBEDS SHAPE', bev_pos_embeds.shape)
 
         # pos_embed and memory
         bs, c, h, w = memory_radar.shape
         bev_memory = rearrange(memory_radar, "bs c h w -> (h w) bs c") # [bs, c, h, w] -> [h*w, bs, c]
+        imbev_memory = rearrange(memory_img_bev, "bs c h w -> (h w) bs c") # [bs, c, h, w] -> [h*w, bs, c]
       # print('RCTrans Head BEV MEMORY SHAPE', bev_memory.shape)
 
         rv_memory = rearrange(memory_img, "(bs v) c h w -> (v h w) bs c", bs=bs)
       # print('RCTrans Head RV MEMORY SHAPE', rv_memory.shape)
 
         bev_pos_embed = bev_pos_embeds.unsqueeze(1).repeat(1, bs, 1) # [bs, n, c, h, w] -> [n*h*w, bs, c]
+        imbev_pos_embed = imbev_pos_embeds.unsqueeze(1).repeat(1, bs, 1) # [bs, n, c, h, w] -> [n*h*w, bs, c]
       # print('RCTrans Head BEV POS EMBED SHAPE', bev_pos_embed.shape)
 
         rv_pos_embed = rearrange(rv_pos_embeds, "(bs v) h w c -> (v h w) bs c", bs=bs)
       # print('RCTrans Head RV POS EMBED SHAPE', rv_pos_embed.shape)
 
-        memory, pos_embed = torch.cat([bev_memory, rv_memory], dim=0).transpose(1,0), torch.cat([bev_pos_embed, rv_pos_embed], dim=0).transpose(1,0)
-      # print('RCTrans Head MEMORY SHAPE', memory.shape)
-      # print('RCTrans Head POS EMBED SHAPE', pos_embed.shape)
+        memory, pos_embed = torch.cat([bev_memory + imbev_memory, rv_memory], dim=0).transpose(1,0), torch.cat([bev_pos_embed + imbev_pos_embed, rv_pos_embed], dim=0).transpose(1,0)
+        print('RCTrans Head MEMORY SHAPE', memory.shape)
+        print('RCTrans Head POS EMBED SHAPE', pos_embed.shape)
 
         #############
 
