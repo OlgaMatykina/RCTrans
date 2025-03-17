@@ -151,6 +151,20 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         return img_feats_reshaped
     
     def img_feats_to_bev(self, img_feats, ida_mat, intrinsics, sensor2ego):
+        if img_feats.dim() == 5:
+            new_img_feats = img_feats.unsqueeze(dim=1)
+            sensor2ego = sensor2ego.unsqueeze(dim=1)
+            intrinsics = intrinsics.unsqueeze(dim=1)
+            ida_mat = ida_mat.unsqueeze(dim=1)
+        else:
+            new_img_feats = img_feats
+
+        print('NEW_IMG_FEATS SHAPE', new_img_feats.shape)
+        print('BDA MAT SHAPE', torch.eye(4).unsqueeze(0).repeat(new_img_feats.shape[0], 1, 1).shape)
+        print('sensor2ego shape', sensor2ego.shape)
+        print('ida_mat shape', ida_mat.shape)
+        print('intrinsics shape', intrinsics.shape)
+
         self.downsample_factor = 16
         self.dbound = [2.0, 58.0, 0.5]
         self.depth_channels = int((self.dbound[1] - self.dbound[0]) / self.dbound[2])
@@ -191,12 +205,12 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         # model.static_mat = model.get_proj_mat(mats_dict)
 
         bev_feature, depth = model(
-            img_feats, {
+            new_img_feats, {
                 'sensor2ego_mats': sensor2ego,
                 'intrin_mats': intrinsics,
                 'ida_mats': ida_mat,
                 # 'sensor2sensor_mats': torch.rand((1, 1, 6, 4, 4)),
-                'bda_mat': torch.eye(4).unsqueeze(0).repeat(img_feats.shape[0], 1, 1).to(intrinsics.device),
+                'bda_mat': torch.eye(4).unsqueeze(0).repeat(new_img_feats.shape[0], 1, 1).to(intrinsics.device),
             },
             is_return_depth=True)
 
@@ -524,9 +538,16 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         """Test function without augmentaiton."""
         # data['img_feats'] = self.extract_img_feat(data['img'], 1)
         # data['radar_feats'] = self.extract_radar_feat(data['radar'])
+        ida_mat = data['ida_mat']
+        intrinsics = data['intrinsics']
+        sensor2ego = data['sensor2ego']
+
         rec_img_feats, rec_radar_feats = self.extract_feat(data['img'], data['radar'], 1)
+        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego)
+        
         data['img_feats'] = rec_img_feats
         data['radar_feats'] = rec_radar_feats
+        data['bev_feats'] = bev_feats
 
         bbox_list = [dict() for i in range(len(img_metas))]
         bbox_pts = self.simple_test_pts(

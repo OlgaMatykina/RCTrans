@@ -260,7 +260,7 @@ test_pipeline = [
     dict(type='RadarRangeFilter', radar_range=bev_range),
     dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-    dict(type='PadMultiViewImage', size_divisor=32),
+    dict(type='PadMultiViewImage', size_divisor=32, training=False),
     dict(
         type='MultiScaleFlipAug3D',
         img_scale=(1333, 800),
@@ -272,7 +272,7 @@ test_pipeline = [
                 collect_keys=collect_keys,
                 class_names=class_names,
                 with_label=False),
-            dict(type='MyTransform',),
+            dict(type='MyTransform', training=False),
             dict(type='Collect3D', keys=['img','radar'] + collect_keys,
             meta_keys=('filename', 'ori_shape', 'img_shape','pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token','lidar2img'))
         ]), 
@@ -305,7 +305,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW', 
-    lr=1e-5, #bs 4 gpu 1 # bs 8: 2e-4 || bs 16: 4e-4
+    lr=8e-5, # bs 32 gpu 1 || bs 4 gpu 1: 1e-5 # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -324,7 +324,7 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
+evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
@@ -345,7 +345,7 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='RCTrans transformer layer bev+rv features and pos_embeds',     # Имя эксперимента
+                name='lab_comp RCTrans transformer layer bev+rv features and pos_embeds',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',

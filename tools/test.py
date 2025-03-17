@@ -23,7 +23,7 @@ from projects.mmdet3d_plugin.core.apis.test import custom_multi_gpu_test
 from mmdet.datasets import replace_ImageToTensor
 import time
 import os.path as osp
-from memory_profiler import profile
+# from memory_profiler import profile
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -107,7 +107,7 @@ def parse_args():
     return args
 
 
-@profile
+# @profile
 def main():
     args = parse_args()
 

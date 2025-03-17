@@ -267,12 +267,16 @@ class ObjectRangeFilter_radar(object):
     
 @PIPELINES.register_module()
 class MyTransform:
+    def __init__(self, training=True):
+        self.training = training
+
     def __call__(self, results):
         radar = DataContainer(results['radar'].tensor)
         results['radar'] = radar
 
-        lidar = DataContainer(results['lidar'].tensor)
-        results['lidar'] = lidar
+        if self.training:
+            lidar = DataContainer(results['lidar'].tensor)
+            results['lidar'] = lidar
         return results
 
 @PIPELINES.register_module()
