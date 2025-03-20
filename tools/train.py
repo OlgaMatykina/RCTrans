@@ -253,6 +253,8 @@ def main():
             if hasattr(datasets[0], 'PALETTE') else None)
     # add an attribute for visualization convenience
     model.CLASSES = datasets[0].CLASSES
+    # if distributed:
+    #     cfg.find_unused_parameters = True
     custom_train_model(
         model,
         datasets,

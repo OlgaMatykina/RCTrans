@@ -50,6 +50,9 @@ class PadMultiViewImage():
         results['pad_fix_size'] = self.size
         results['pad_size_divisor'] = self.size_divisor
 
+        # print('img in padmultiview', type(padded_img), len(padded_img), type(padded_img[0]), padded_img[0].shape)
+
+
     def _pad_depth_map(self, results):
         """Pad depth maps according to ``self.size``."""
         if self.size is not None:
@@ -59,6 +62,9 @@ class PadMultiViewImage():
             padded_img = [mmcv.impad_to_multiple(img,
                                 self.size_divisor, pad_val=self.pad_val) for img in results['depth_maps']]
         results['depth_maps'] = padded_img
+        # print('depth_maps', type(padded_img), len(padded_img), type(padded_img[0]), padded_img[0].shape)
+
+
 
     
     def __call__(self, results):
@@ -120,23 +126,26 @@ class NormalizeMultiviewImage(object):
 
 @PIPELINES.register_module()
 class ResizeCropFlipRotImage():
-    def __init__(self, data_aug_conf=None, with_2d=True, filter_invisible=True, training=True):
+    def __init__(self, data_aug_conf=None, with_2d=True, filter_invisible=True, training=True, with_depth=True):
         self.data_aug_conf = data_aug_conf
         self.training = training
         self.min_size = 2.0
         self.with_2d = with_2d
         self.filter_invisible = filter_invisible
+        self.with_depth = with_depth
 
     def __call__(self, results):
 
         # print(results.keys())
 
         imgs = results['img']
-        if self.training:
+        if self.with_depth:
             depth_maps = results['depth_maps']
+            # print('depth_maps', type(depth_maps), len(depth_maps), type(depth_maps[0]), depth_maps[0].shape)
+
         N = len(imgs)
         new_imgs = []
-        if self.training:
+        if self.with_depth:
             new_depth_maps = []
         new_gt_bboxes = []
         new_centers2d = []
@@ -151,7 +160,7 @@ class ResizeCropFlipRotImage():
 
         for i in range(N):
             img = Image.fromarray(np.uint8(imgs[i]))
-            if self.training:
+            if self.with_depth:
                 depth_map = Image.fromarray(np.uint8(depth_maps[i]))
             img, ida_mat = self._img_transform(
                 img,
@@ -162,7 +171,7 @@ class ResizeCropFlipRotImage():
                 rotate=rotate,
             )
 
-            if self.training:
+            if self.with_depth:
                 depth_map, _ = self._img_transform(
                     depth_map,
                     resize=resize,
@@ -196,7 +205,7 @@ class ResizeCropFlipRotImage():
                 new_depths.append(depths)
 
             new_imgs.append(np.array(img).astype(np.float32))
-            if self.training:
+            if self.with_depth:
                 new_depth_maps.append(np.array(depth_map).astype(np.float32))
 
             ida_mat_ext = torch.eye(4, dtype=ida_mat.dtype, device=ida_mat.device)  # Создаем 4x4 единичную матрицу
@@ -208,7 +217,7 @@ class ResizeCropFlipRotImage():
         results['gt_labels'] = new_gt_labels
         results['depths'] = new_depths
         results['img'] = new_imgs
-        if self.training:
+        if self.with_depth:
             results['depth_maps'] = new_depth_maps
         results['ida_mat'] = ida_mats  # Добавляем в results
         results['lidar2img'] = [results['intrinsics'][i] @ results['extrinsics'][i] for i in range(len(results['extrinsics']))]

@@ -84,17 +84,18 @@ class RCTransTransformerDecoder(TransformerLayerSequence):
         for index in range(int(len(self.layers))//2):
 
             query = self.layers[2*index](query, bev_key, bev_key, bev_query_pos, bev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
-            print('FIRST LAYER SHAPES', query.shape, bev_key.shape, bev_key.shape, bev_query_pos.shape, bev_key_pos.shape, temp_memory.shape, bev_temp_pos.shape)
+            # print('FIRST LAYER SHAPES', query.shape, bev_key.shape, bev_key.shape, bev_query_pos.shape, bev_key_pos.shape, temp_memory.shape, bev_temp_pos.shape)
             query = self.layers[2*index + 1](query, rv_key, rv_key, rv_query_pos, rv_key_pos, temp_memory, rv_temp_pos, attn_masks) # [Nq, B, C]
-            print('SECOND LAYER SHAPES', query.shape, rv_key.shape, rv_key.shape, rv_query_pos.shape, rv_key_pos.shape, temp_memory.shape, rv_temp_pos.shape)
-            print('ONLY LAYER SHAPE',
-                query.shape, 
-                torch.cat([bev_key, rv_key], dim=0).shape,
-                torch.cat([bev_key, rv_key], dim=0).shape,
-                torch.add(bev_query_pos, rv_query_pos).shape,
-                torch.cat([bev_key_pos, rv_key_pos], dim=0).shape,
-                temp_memory.shape,
-                torch.add(bev_temp_pos, rv_temp_pos).shape)
+            # print('SECOND LAYER SHAPES', query.shape, rv_key.shape, rv_key.shape, rv_query_pos.shape, rv_key_pos.shape, temp_memory.shape, rv_temp_pos.shape)
+            # print('ONLY LAYER SHAPE',
+            #     query.shape, 
+            #     torch.cat([bev_key, rv_key], dim=0).shape,
+            #     torch.cat([bev_key, rv_key], dim=0).shape,
+            #     torch.add(bev_query_pos, rv_query_pos).shape,
+            #     torch.cat([bev_key_pos, rv_key_pos], dim=0).shape,
+            #     temp_memory.shape,
+            #     torch.add(bev_temp_pos, rv_temp_pos).shape)
+            
             # query = self.layers[index](
             #     query, 
             #     torch.cat([bev_key, rv_key], dim=0),

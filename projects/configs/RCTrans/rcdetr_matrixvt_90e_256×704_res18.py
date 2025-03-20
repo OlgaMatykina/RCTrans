@@ -122,6 +122,24 @@ model = dict(
     radar_dense_encoder=dict(
         type='Radar_dense_encoder_tf',
     ),
+
+    depth_model=dict(
+        type='MatrixVT',
+        x_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
+        y_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
+        z_bound=[-5, 3, 8],  # BEV grids bounds and size (m)
+        d_bound=[2.0, 58.0, 0.5],  # Categorical Depth bounds and division (m)
+        final_dim=(256, 704),  # img size for model input (pix)
+        output_channels=64,  # BEV feature channels
+        downsample_factor=16,  # ds factor of the feature to be projected to BEV (e.g. 256x704 -> 16x44)  # noqa
+        depth_net_conf=dict(in_channels=256, mid_channels=256),
+        loss_depth=dict(
+            type='DepthLoss',
+            dbound=[2.0, 58.0, 0.5],
+            downsample_factor=16,
+            loss_weight=3.0),
+    ),
+
     # detect head
     pts_bbox_head=dict(
         type='RCTransBEVHead',
@@ -257,10 +275,19 @@ test_pipeline = [
         use_num=6,
         use_dim=radar_use_dims,
         max_num=2048),
+
+    dict(
+        type='LoadLidarPointsFromFile',
+        coord_type='LIDAR',
+        load_dim=5,
+        use_dim=lidar_use_dims,
+    ),
+    dict(type='GenerateLidarDepth'),
+
     dict(type='RadarRangeFilter', radar_range=bev_range),
-    dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False),
+    dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False, with_depth=True),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-    dict(type='PadMultiViewImage', size_divisor=32, training=False),
+    dict(type='PadMultiViewImage', size_divisor=32, training=True),
     dict(
         type='MultiScaleFlipAug3D',
         img_scale=(1333, 800),
@@ -272,8 +299,8 @@ test_pipeline = [
                 collect_keys=collect_keys,
                 class_names=class_names,
                 with_label=False),
-            dict(type='MyTransform', training=False),
-            dict(type='Collect3D', keys=['img','radar'] + collect_keys,
+            dict(type='MyTransform', training=True),
+            dict(type='Collect3D', keys=['img','radar', 'lidar', 'depth_maps'] + collect_keys,
             meta_keys=('filename', 'ori_shape', 'img_shape','pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token','lidar2img'))
         ]), 
 ]
@@ -291,14 +318,14 @@ data = dict(
         pipeline=train_pipeline,
         classes=class_names,
         modality=input_modality,
-        collect_keys=collect_keys + ['img', 'radar', 'prev_exists', 'img_metas'],
+        collect_keys=collect_keys + ['img', 'radar', 'prev_exists', 'img_metas', 'depth_maps'],
         queue_length=queue_length,
         test_mode=False,
         use_valid_flag=True,
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
-    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas',], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas', ], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
@@ -345,7 +372,7 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='lab_comp RCTrans transformer layer bev+rv features and pos_embeds',     # Имя эксперимента
+                name='lab_comp RCTrans training depth BEVDepth',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',

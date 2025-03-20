@@ -76,6 +76,8 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py 1
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/rctrans_transform/
 
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/rctrans_gt_depth/
+
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_bevloss.py 1 --work-dir work_dirs/rctrans/
 
 bash mmdetection3d/tools/dist_train.sh projects/configs/MyFirstModel/pointpillar.py 1 --work-dir work_dirs/pointpillar/
@@ -91,6 +93,8 @@ bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_bevlo
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py work_dirs/rctrans_transform/iter_30003.pth 1 --eval bbox
 
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_matrixvt_90e_256×704_res18.py work_dirs/rctrans_transform/latest.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_matrixvt_90e_256×704_res18.py work_dirs/rctrans_gt_depth/latest.pth 1 --eval bbox
 
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py work_dirs/rcdetr/iter_39555.pth 1 --eval bbox
 
