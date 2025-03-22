@@ -81,6 +81,9 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_matrixvt_90e_256×704_r
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_bevloss.py 1 --work-dir work_dirs/rctrans/
 
 bash mmdetection3d/tools/dist_train.sh projects/configs/MyFirstModel/pointpillar.py 1 --work-dir work_dirs/pointpillar/
+
+bash tools/dist_train.sh projects/configs/Depth/sparse_beats_dense.py 1 --work-dir work_dirs/sbd/
+
 ```
 Evaluation
 ```

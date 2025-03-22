@@ -11,3 +11,4 @@ from .pointpillars import PointPillarsScatter_futr3d, Radar_dense_encoder_tf
 from .radar_encoder import RadarFeatureNet
 from .vit import ViT
 from .matrixvt_slim import MatrixVT
+from .sparse_beats_dense import SBD
