@@ -50,9 +50,10 @@ class PETRFormatBundle3D(DefaultFormatBundle):
 
         for key in self.collect_keys:
             if key in ['timestamp',  'img_timestamp']:
-                 results[key] = DC(to_tensor(np.array(results[key], dtype=np.float64)))
+                results[key] = DC(to_tensor(np.array(results[key], dtype=np.float64)))
             else:
-                 results[key] = DC(to_tensor(np.array(results[key], dtype=np.float32)))
+                # print('PETR', key, type(results[key]), len(results[key]), type(results[key][0]), results[key][0].shape)
+                results[key] = DC(to_tensor(np.array(results[key], dtype=np.float32)))
 
         for key in ['voxels', 'coors', 'voxel_centers', 'num_points']:
             if key not in results:

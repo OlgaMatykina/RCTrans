@@ -212,12 +212,19 @@ class DepthNet(nn.Module):
 
     def forward(self, x, mats_dict):
         intrins = mats_dict['intrin_mats'][:, 0:1, ..., :3, :3]
+        print('intrins shape', intrins.shape)
         batch_size = intrins.shape[0]
         num_cams = intrins.shape[2]
         ida = mats_dict['ida_mats'][:, 0:1, ...]
+        print('ida shape', ida.shape)
+
         sensor2ego = mats_dict['sensor2ego_mats'][:, 0:1, ..., :3, :]
+        print('sensor2ego shape', sensor2ego.shape)
+
         bda = mats_dict['bda_mat'].view(batch_size, 1, 1, 4,
                                         4).repeat(1, 1, num_cams, 1, 1)
+        print('bda shape', bda.shape)
+        
         mlp_input = torch.cat(
             [
                 torch.stack(
@@ -560,6 +567,7 @@ class BaseLSSFPN(nn.Module):
     def forward(self,
                 sweep_imgs,
                 mats_dict,
+                gt_depth,
                 timestamps=None,
                 is_return_depth=False):
         """Forward function.
@@ -593,6 +601,7 @@ class BaseLSSFPN(nn.Module):
             0,
             sweep_imgs[:, 0:1, ...],
             mats_dict,
+            gt_depth,
             is_return_depth=is_return_depth)
         if num_sweeps == 1:
             return key_frame_res
@@ -607,6 +616,7 @@ class BaseLSSFPN(nn.Module):
                     sweep_index,
                     sweep_imgs[:, sweep_index:sweep_index + 1, ...],
                     mats_dict,
+                    gt_depth,
                     is_return_depth=False)
                 ret_feature_list.append(feature_map)
 

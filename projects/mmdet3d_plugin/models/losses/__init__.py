@@ -1,1 +1,1 @@
-from .depth_loss import DepthLoss
+from .depth_loss import DepthLoss, my_loss

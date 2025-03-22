@@ -267,12 +267,20 @@ class ObjectRangeFilter_radar(object):
     
 @PIPELINES.register_module()
 class MyTransform:
+    def __init__(self, training=True):
+        self.training = training
+
     def __call__(self, results):
         radar = DataContainer(results['radar'].tensor)
         results['radar'] = radar
 
-        lidar = DataContainer(results['lidar'].tensor)
-        results['lidar'] = lidar
+        if self.training:
+            lidar = DataContainer(results['lidar'].tensor)
+            results['lidar'] = lidar
+
+        # print('depth_maps', type(results['depth_maps']), len(results['depth_maps']), type(results['depth_maps'][0]), results['depth_maps'][0].shape)
+        # print('img in mytransform', type(results['img']), len(results['img']), type(results['img'][0]), results['img'][0].shape)
+        
         return results
 
 @PIPELINES.register_module()
@@ -628,6 +636,7 @@ class GenerateLidarDepth():
             depth_maps.append(depth_map)
         
         results['depth_maps'] = depth_maps
+        # print('depth_maps', type(depth_maps), len(depth_maps), type(depth_maps[0]), depth_maps[0].shape)
         return results
 
 

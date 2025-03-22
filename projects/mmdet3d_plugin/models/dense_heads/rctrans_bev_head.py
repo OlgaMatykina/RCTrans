@@ -705,13 +705,13 @@ class RCTransBEVHead(AnchorFreeHead):
         x_img = data['img_feats']
 
 
-        print('RCTrans Head BEV FEATURES SHAPE', x_img_bev.shape)
-        print('RCTrans Head IMG FEATURES SHAPE', x_img.shape)
+        # print('RCTrans Head BEV FEATURES SHAPE', x_img_bev.shape)
+        # print('RCTrans Head IMG FEATURES SHAPE', x_img.shape)
 
 
         x_radar = data['radar_feats']
 
-        print('RCTrans Head RADAR FEATURES SHAPE', x_radar.shape)
+        # print('RCTrans Head RADAR FEATURES SHAPE', x_radar.shape)
 
         B, N, C, H, W = x_img.shape
 
@@ -750,8 +750,8 @@ class RCTransBEVHead(AnchorFreeHead):
       # print('RCTrans Head RV POS EMBED SHAPE', rv_pos_embed.shape)
 
         memory, pos_embed = torch.cat([bev_memory + imbev_memory, rv_memory], dim=0).transpose(1,0), torch.cat([bev_pos_embed + imbev_pos_embed, rv_pos_embed], dim=0).transpose(1,0)
-        print('RCTrans Head MEMORY SHAPE', memory.shape)
-        print('RCTrans Head POS EMBED SHAPE', pos_embed.shape)
+        # print('RCTrans Head MEMORY SHAPE', memory.shape)
+        # print('RCTrans Head POS EMBED SHAPE', pos_embed.shape)
 
         #############
 
