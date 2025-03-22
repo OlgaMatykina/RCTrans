@@ -198,8 +198,8 @@ model = dict(
 
 
 dataset_type = 'CustomNuScenesDataset'
-data_root = '../HPR1/nuscenes/'
-ann_root = '../HPR1/'
+data_root = '../HPR1/nuScenes2d/nuscenes/'
+ann_root = '../HPR1/nuScenes2d/'
 file_client_args = dict(backend='disk')
 
 
@@ -305,7 +305,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW', 
-    lr=1e-5, #bs 4 gpu 1 # bs 8: 2e-4 || bs 16: 4e-4
+    lr=8e-5, # bs 32 gpu 1 || bs 4 gpu 1: 1e-5 # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -324,7 +324,7 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
+evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
@@ -345,7 +345,7 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='RCTrans transformer layer bev+rv features and pos_embeds',     # Имя эксперимента
+                name='cds2 RCTrans transformer layer bev+rv features and pos_embeds',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',
