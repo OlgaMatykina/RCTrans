@@ -42,7 +42,7 @@ python tools/create_data_nusc.py --root-path ./data/nuscenes --out-dir ./data --
 
 python3 tools/create_data_nusc.py --root-path ../HPR1/nuscenes --out-dir ../HPR1 --extra-tag nuscenes_radar --version v1.0
 
-python3 tools/create_data_nusc.py --root-path ../HPR1/nuscenes --out-dir ../HPR1 --extra-tag nuscenes_radar --version v1.0-mini
+python3 tools/create_data_nusc.py --root-path ../HPR2/nuscenes --out-dir ../HPR2 --extra-tag mini_nuscenes_radar --version v1.0-mini
 ```
 Folder structure
 ```
@@ -82,7 +82,7 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_bevl
 
 bash mmdetection3d/tools/dist_train.sh projects/configs/MyFirstModel/pointpillar.py 1 --work-dir work_dirs/pointpillar/
 
-bash tools/dist_train.sh projects/configs/Depth/sparse_beats_dense.py 1 --work-dir work_dirs/sbd/
+bash tools/dist_train.sh projects/configs/Depth/matrixvt.py 1 --work-dir work_dirs/matrixvt/
 
 ```
 Evaluation

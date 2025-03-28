@@ -176,11 +176,13 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
     def img_feats_to_bev(self, img_feats, ida_mat, intrinsics, sensor2ego, gt_depth):
         if img_feats.dim() == 5:
             new_img_feats = img_feats.unsqueeze(dim=1)
-            sensor2ego = sensor2ego.unsqueeze(dim=1)
-            intrinsics = intrinsics.unsqueeze(dim=1)
-            ida_mat = ida_mat.unsqueeze(dim=1)
+        #     sensor2ego = sensor2ego.unsqueeze(dim=1)
+        #     intrinsics = intrinsics.unsqueeze(dim=1)
+        #     ida_mat = ida_mat.unsqueeze(dim=1)
         else:
             new_img_feats = img_feats
+
+        # new_img_feats = img_feats
 
         # print('NEW_IMG_FEATS SHAPE', new_img_feats.shape)
         # print('BDA MAT SHAPE', torch.eye(4).unsqueeze(0).repeat(new_img_feats.shape[0], 1, 1).shape)
@@ -277,13 +279,18 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         num_nograd_frames = T - self.num_frame_head_grads
         num_grad_losses = T - self.num_frame_losses
         
+        # print('data_img', type(data['img']))
+
         for i in range(T):
             requires_grad = False
             return_losses = False
             data_t = dict()
             for key in data:
                 if key not in ['radar', 'radar_feats', 'bev_feats', 'lidar', 'depth_maps']:
-                    data_t[key] = data[key][:, i] 
+                    try:
+                        data_t[key] = data[key][:, i]
+                    except:
+                        print(key, type(data[key]))
                 else:
                     data_t[key] = data[key]
             data_t['img_feats'] = data_t['img_feats']
@@ -442,6 +449,9 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
 
         if isinstance(gt_depths, list):
             gt_depths = torch.stack(gt_depths, dim=1)
+
+        if gt_depths.dim() == 4:
+            gt_depths = gt_depths.unsqueeze(dim=1)
 
         # print('GT DEPTH SHAPE', gt_depths.shape)
         gt_depths = self.get_downsampled_gt_depth(gt_depths)

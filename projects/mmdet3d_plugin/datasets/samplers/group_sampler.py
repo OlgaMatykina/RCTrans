@@ -182,9 +182,11 @@ class InfiniteGroupEachSampleInBatchSampler(Sampler):
 
         assert hasattr(self.dataset, 'flag')
         self.flag = self.dataset.flag
+        print('self.flag', self.flag, len(self.flag))
         self.group_sizes = np.bincount(self.flag)
         self.groups_num = len(self.group_sizes)
         self.global_batch_size = samples_per_gpu * num_replicas
+        print('self.groups_num', self.groups_num, 'self.global_batch_size', self.global_batch_size)
         assert self.groups_num >= self.global_batch_size
 
         # Now, for efficiency, make a dict group_idx: List[dataset sample_idxs]

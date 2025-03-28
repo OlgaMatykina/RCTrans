@@ -33,6 +33,7 @@ class CustomNuScenesDataset(NuScenesDataset):
         self.random_length = random_length
         self.num_frame_losses = num_frame_losses
         self.seq_mode = seq_mode
+        # print('seq_mode', self.seq_mode)
         if seq_mode:
             self.num_frame_losses = 1
             self.queue_length = 1

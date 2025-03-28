@@ -324,8 +324,10 @@ data = dict(
         use_valid_flag=True,
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
-    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas',], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas', ], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas',], 
+            queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, test_mode=True, seq_mode=True,),
+    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas', ], 
+            queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
@@ -360,27 +362,30 @@ checkpoint_config = dict(interval=10001, max_keep_ckpts=3)
 runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
 load_from=None
+# resume_from='work_dirs/rctrans_gt_depth/iter_40004.pth'
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
 
 log_config = dict(
-    interval=5,
+    interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        dict(
-            type='WandbLoggerHook',
-            init_kwargs=dict(
-                project='radar-camera',   # Название проекта в WandB
-                name='lab_comp RCTrans training depth BEVDepth',     # Имя эксперимента
-                config=dict(                # Дополнительные настройки эксперимента
-                    batch_size=batch_size,
-                    model='rcdetr',
-                )
-            )
-        ),
+        # dict(
+        #     type='WandbLoggerHook',
+        #     init_kwargs=dict(
+        #         project='radar-camera',   # Название проекта в WandB
+        #         name='lab_comp RCTrans training depth BEVDepth',     # Имя эксперимента
+        #         config=dict(                # Дополнительные настройки эксперимента
+        #             batch_size=batch_size,
+        #             model='rcdetr',
+        #         )
+        #     )
+        # ),
     ],
 )
+
+workflow = [('train', 1), ('val', 1)]
 
 '''
 mAP: 0.4741
