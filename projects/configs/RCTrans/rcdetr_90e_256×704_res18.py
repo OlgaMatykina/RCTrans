@@ -29,7 +29,8 @@ class_names = [
 # num_gpus = 8
 num_gpus = 1
 batch_size = 4
-num_iters_per_epoch = 28130 // (num_gpus * batch_size)
+# num_iters_per_epoch = 28130 // (num_gpus * batch_size)
+num_iters_per_epoch = 323 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
 
@@ -319,19 +320,20 @@ checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
 runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
 load_from=None
-resume_from='ckpts/res18.pth'
+# resume_from='ckpts/res18.pth'
+resume_from='work_dirs/rctrans_circle_init/iter_1001.pth'
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
 
 log_config = dict(
     interval=5,
     hooks=[
-        # dict(type='TextLoggerHook'),
+        dict(type='TextLoggerHook'),
         dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='RCTrans',     # Имя эксперимента
+                name='RCTrans circular init mini',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',

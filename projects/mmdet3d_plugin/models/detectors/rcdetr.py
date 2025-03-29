@@ -459,6 +459,7 @@ class RCDETR(MVXTwoStageDetector):
             img_metas, **data)
         for result_dict, pts_bbox in zip(bbox_list, bbox_pts):
             result_dict['pts_bbox'] = pts_bbox
+        # print(bbox_pts[0]['boxes_3d'][0])
         return bbox_list
 
     

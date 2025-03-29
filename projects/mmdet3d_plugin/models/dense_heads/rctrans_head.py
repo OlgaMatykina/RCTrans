@@ -710,7 +710,8 @@ class RCTransHead(AnchorFreeHead):
         #############
 
         # query
-        reference_points = self.reference_points.weight
+        # reference_points = self.reference_points.weight
+        reference_points = self.circular_init(6, 80, 65, 1.25).cuda()
         reference_points, attn_mask, mask_dict = self.prepare_for_dn(B, reference_points, img_metas)
 
         bev_query_pos, rv_query_pos = self.query_embed(reference_points, img_metas)
@@ -1145,3 +1146,30 @@ class RCTransHead(AnchorFreeHead):
             labels = preds['labels']
             ret_list.append([bboxes, scores, labels])
         return ret_list
+
+
+    def circular_init(self, k, n, r, alpha):
+        points = []
+        total_points = 0
+        
+        for i in range(1, k + 1):
+            radius = (i * r) / k
+            num_points = int(n * (alpha ** (i - 1)))
+            total_points += num_points
+            
+            if total_points > self.num_query:
+                num_points -= (total_points - self.num_query)
+                total_points = self.num_query
+            
+            angles = np.linspace(0, 2 * np.pi, num_points, endpoint=False)
+            x = radius * np.cos(angles)
+            y = radius * np.sin(angles)
+            z = np.random.uniform(-1, 1, size=num_points)
+            
+            for j in range(num_points):
+                points.append([x[j], y[j], z[j]])
+            
+            if total_points >= self.num_query:
+                break
+        
+        return torch.tensor(points, dtype=torch.float32)
