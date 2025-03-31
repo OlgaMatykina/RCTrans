@@ -511,7 +511,7 @@ class NuScenesDataset(Custom3DDataset):
         elif isinstance(result_files, str):
             results_dict = self._evaluate_single(result_files)
 
-        results_dict['date_time'] = 0
+        results_dict['data_time'] = 0
 
         if tmp_dir is not None:
             tmp_dir.cleanup()
