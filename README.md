@@ -84,6 +84,9 @@ bash mmdetection3d/tools/dist_train.sh projects/configs/MyFirstModel/pointpillar
 
 bash tools/dist_train.sh projects/configs/Depth/matrixvt.py 1 --work-dir work_dirs/matrixvt/
 
+bash tools/dist_train.sh projects/configs/Depth/sparse_beats_dense.py 1 --work-dir work_dirs/sbd/
+
+
 ```
 Evaluation
 ```

@@ -451,7 +451,7 @@ class FullyConnectedEncoder(torch.nn.Module):
 
 @BACKBONES.register_module()
 class SBD(nn.Module):
-    def __init__(self, train_cfg, test_cfg):
+    def __init__(self):
         super().__init__()
         self.G1  = UNet(4)        # 1/4
         self.G2  = UNet(12)       # 1/2      

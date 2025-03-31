@@ -65,6 +65,15 @@ class PadMultiViewImage():
         # print('depth_maps', type(padded_img), len(padded_img), type(padded_img[0]), padded_img[0].shape)
 
 
+    def _pad_radar_depth_map(self, results):
+        """Pad depth maps according to ``self.size``."""
+        if self.size is not None:
+            padded_img = [mmcv.impad(img,
+                                shape = self.size, pad_val=self.pad_val) for img in results['radar_depth']]
+        elif self.size_divisor is not None:
+            padded_img = [mmcv.impad_to_multiple(img,
+                                self.size_divisor, pad_val=self.pad_val) for img in results['radar_depth']]
+        results['radar_depth'] = padded_img
 
     
     def __call__(self, results):
@@ -77,6 +86,7 @@ class PadMultiViewImage():
         self._pad_img(results)
         if self.training:
             self._pad_depth_map(results)
+            self._pad_radar_depth_map(results)
         return results
 
 
@@ -141,12 +151,14 @@ class ResizeCropFlipRotImage():
         imgs = results['img']
         if self.with_depth:
             depth_maps = results['depth_maps']
+            radar_maps = results['radar_depth']
             # print('depth_maps', type(depth_maps), len(depth_maps), type(depth_maps[0]), depth_maps[0].shape)
 
         N = len(imgs)
         new_imgs = []
         if self.with_depth:
             new_depth_maps = []
+            new_radar_depth = []
         new_gt_bboxes = []
         new_centers2d = []
         new_gt_labels = []
@@ -162,6 +174,7 @@ class ResizeCropFlipRotImage():
             img = Image.fromarray(np.uint8(imgs[i]))
             if self.with_depth:
                 depth_map = Image.fromarray(np.uint8(depth_maps[i]))
+                radar_map = Image.fromarray(np.uint8(radar_maps[i]))
             img, ida_mat = self._img_transform(
                 img,
                 resize=resize,
@@ -174,6 +187,14 @@ class ResizeCropFlipRotImage():
             if self.with_depth:
                 depth_map, _ = self._img_transform(
                     depth_map,
+                    resize=resize,
+                    resize_dims=resize_dims,
+                    crop=crop,
+                    flip=flip,
+                    rotate=rotate,
+                )
+                radar_map, _ = self._img_transform(
+                    radar_map,
                     resize=resize,
                     resize_dims=resize_dims,
                     crop=crop,
@@ -207,6 +228,8 @@ class ResizeCropFlipRotImage():
             new_imgs.append(np.array(img).astype(np.float32))
             if self.with_depth:
                 new_depth_maps.append(np.array(depth_map).astype(np.float32))
+                new_radar_depth.append(np.array(radar_map).astype(np.float32))
+
 
             ida_mat_ext = torch.eye(4, dtype=ida_mat.dtype, device=ida_mat.device)  # Создаем 4x4 единичную матрицу
             ida_mat_ext[:3, :3] = ida_mat
@@ -219,6 +242,7 @@ class ResizeCropFlipRotImage():
         results['img'] = new_imgs
         if self.with_depth:
             results['depth_maps'] = new_depth_maps
+            results['radar_depth'] = new_radar_depth
         results['ida_mat'] = ida_mats  # Добавляем в results
         results['lidar2img'] = [results['intrinsics'][i] @ results['extrinsics'][i] for i in range(len(results['extrinsics']))]
 

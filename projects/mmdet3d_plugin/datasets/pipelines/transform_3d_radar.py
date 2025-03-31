@@ -640,6 +640,103 @@ class GenerateLidarDepth():
         return results
 
 
+
+@PIPELINES.register_module()
+class GenerateRadarDepth():
+    '''
+    radar points are also in LIDAR coordinate system
+    '''
+    def __init__(self, min_dist=0.0):
+        self.min_dist = min_dist
+
+    def __call__(self, results):
+        lidar_points = results['radar'].tensor  # (N, 3) or (N, 4) radar points also in LIDAR coordinate system
+        images = results['img']  # List of 6 images
+        intrinsics = results['intrinsics']  # List of 6 (4, 4) matrices
+        extrinsics = results['extrinsics']  # List of 6 (4, 4) matrices
+
+        # print('images', type(images), len(images), type(images[0]), images[0].shape)
+        
+        depth_maps = []
+        for i in range(len(images)):
+            depth_map = get_lidar_depth(lidar_points.detach(), images[i], extrinsics[i], intrinsics[i])
+            depth_maps.append(depth_map)
+        
+        results['radar_depth'] = depth_maps
+        # print('depth_maps', type(depth_maps), len(depth_maps), type(depth_maps[0]), depth_maps[0].shape)
+        return results
+
+
+
+@PIPELINES.register_module()
+class LoadMultiViewSegMaskFromFiles(object):
+    """Load multi channel images from a list of separate channel files.
+
+    Expects results['img_filename'] to be a list of filenames.
+
+    Args:
+        to_float32 (bool, optional): Whether to convert the img to float32.
+            Defaults to False.
+        color_type (str, optional): Color type of the file.
+            Defaults to 'unchanged'.
+    """
+
+    def __init__(self, semantic_mask_used_mask, to_float32=False, color_type='unchanged'):
+        self.to_float32 = to_float32
+        self.color_type = color_type
+        self.semantic_mask_used_mask = semantic_mask_used_mask
+
+    def __call__(self, results):
+        """Call function to load multi-view image from files.
+
+        Args:
+            results (dict): Result dict containing multi-view image filenames.
+
+        Returns:
+            dict: The result dict containing the multi-view image data.
+                Added keys and values are described below.
+
+                - filename (str): Multi-view image filenames.
+                - img (np.ndarray): Multi-view image arrays.
+                - img_shape (tuple[int]): Shape of multi-view image arrays.
+                - ori_shape (tuple[int]): Shape of original image arrays.
+                - pad_shape (tuple[int]): Shape of padded image arrays.
+                - scale_factor (float): Scale factor.
+                - img_norm_cfg (dict): Normalization configuration of images.
+        """
+        filename = results['img_filename']
+        # img is of shape (h, w, c, num_views)
+        img = [mmcv.imread(name.replace('samples', 'seg_mask'), self.color_type) for name in filename]
+        
+        seg_mask = list()
+        for seg_mask in img:
+            seg_mask_roi = list()
+            for i in self.semantic_mask_used_mask:
+                seg_mask_roi.append(np.where(seg_mask==i, 1, 0))
+            seg_mask_roi = np.sum(np.stack(seg_mask_roi, axis=0), axis=0)
+            seg_mask.append(seg_mask_roi)
+
+        img = np.stack(seg_mask, axis=-1)
+        if self.to_float32:
+            img = img.astype(np.float32)
+        results['seg_mask_filename'] = filename
+        # unravel to list, see `DefaultFormatBundle` in formatting.py
+        # which will transpose each image separately and then stack into array
+        results['seg_mask'] = [img[..., i] for i in range(img.shape[-1])]
+        results['seg_mask_shape'] = img.shape
+        results['seg_mask_shape'] = img.shape
+        # Set initial values for default meta_keys
+        results['seg_mask_shape'] = img.shape
+        results['seg_mask_scale_factor'] = 1.0
+        return results
+
+    def __repr__(self):
+        """str: Return a string that describes the module."""
+        repr_str = self.__class__.__name__
+        repr_str += f'(to_float32={self.to_float32}, '
+        repr_str += f"color_type='{self.color_type}')"
+        return repr_str
+
 def get_lidar_depth(lidar_points, img, extirnsic, intrinsic):
     # print(lidar_points.shape)
     pts_img, depth = map_pointcloud_to_image(

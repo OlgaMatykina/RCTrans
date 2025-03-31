@@ -57,6 +57,27 @@ class DefaultFormatBundle(object):
             else:
                 img = np.ascontiguousarray(results['depth_maps'].transpose(0, 1))
                 results['depth_maps'] = DC(to_tensor(img), stack=True)
+
+        if 'radar_depth' in results:
+            if isinstance(results['radar_depth'], list):
+                # process multiple imgs in single frame
+                imgs = [img.transpose(0, 1) for img in results['radar_depth']]
+                imgs = np.ascontiguousarray(np.stack(imgs, axis=0))
+                results['radar_depth'] = DC(to_tensor(imgs), stack=True)
+            else:
+                img = np.ascontiguousarray(results['radar_depth'].transpose(0, 1))
+                results['radar_depth'] = DC(to_tensor(img), stack=True)
+
+        if 'seg_mask' in results:
+            if isinstance(results['seg_mask'], list):
+                # process multiple imgs in single frame
+                imgs = [img.transpose(0, 1) for img in results['seg_mask']]
+                imgs = np.ascontiguousarray(np.stack(imgs, axis=0))
+                results['seg_mask'] = DC(to_tensor(imgs), stack=True)
+            else:
+                img = np.ascontiguousarray(results['seg_mask'].transpose(0, 1))
+                results['seg_mask'] = DC(to_tensor(img), stack=True)
+
         for key in [
                 'proposals', 'gt_bboxes', 'gt_bboxes_ignore', 'gt_labels',
                 'gt_labels_3d', 'attr_labels', 'pts_instance_mask',
