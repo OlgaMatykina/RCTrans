@@ -87,14 +87,16 @@ class LoadRadarPointsMultiSweeps(object):
             masks = np.ones((num_points, 1), 
                         dtype=points.dtype)
 
-            return points, masks
+            # return points, masks
+            return points, num_points
         
         if num_points > self.max_num:
             points = np.random.permutation(points)[:self.max_num, :]
             masks = np.ones((self.max_num, 1), 
                         dtype=points.dtype)
             
-            return points, masks
+            return points, num_points
+            # return points, masks
 
         if num_points < self.max_num:
             zeros = np.zeros((self.max_num - num_points, points.shape[1]), 
@@ -105,7 +107,8 @@ class LoadRadarPointsMultiSweeps(object):
             points = np.concatenate((points, zeros), axis=0)
             masks = np.concatenate((masks, zeros.copy()[:, [0]]), axis=0)
 
-            return points, masks
+            # return points, masks
+            return points, num_points
 
     def __call__(self, results):
         """Call function to load multi-sweep point clouds from files.
@@ -169,11 +172,11 @@ class LoadRadarPointsMultiSweeps(object):
         points = np.concatenate(points_sweep_list, axis=0)
         
         points = points[:, self.use_dim]
-        
         points = RadarPoints(
             points, points_dim=points.shape[-1], attribute_dims=None
         )
         results['radar'] = points
+        # results['num_points'] = num_points
         return results
 
     def __repr__(self):
@@ -188,8 +191,43 @@ class RadarRangeFilter(object):
         point_cloud_range (list[float]): Point cloud range.
     """
 
-    def __init__(self, radar_range):
+    def __init__(self, radar_range, max_num=300,):
         self.radar_range = np.array(radar_range, dtype=np.float32)
+        self.max_num = max_num
+
+    def _pad_or_drop(self, points):
+        '''
+        points: [N, 18]
+        '''
+
+        num_points = points.shape[0]
+
+        if num_points == self.max_num:
+            masks = np.ones((num_points, 1), 
+                        dtype=points.dtype)
+
+            # return points, masks
+            return points, num_points
+        
+        if num_points > self.max_num:
+            points = np.random.permutation(points)[:self.max_num, :]
+            masks = np.ones((self.max_num, 1), 
+                        dtype=points.dtype)
+            
+            return points, num_points
+            # return points, masks
+
+        if num_points < self.max_num:
+            zeros = np.zeros((self.max_num - num_points, points.shape[1]), 
+                        dtype=points.dtype)
+            masks = np.ones((num_points, 1), 
+                        dtype=points.dtype)
+            
+            points = np.concatenate((points, zeros), axis=0)
+            masks = np.concatenate((masks, zeros.copy()[:, [0]]), axis=0)
+
+            # return points, masks
+            return points, num_points
 
 
     def __call__(self, input_dict):
@@ -209,8 +247,19 @@ class RadarRangeFilter(object):
     
         radar_mask = radar.in_range_bev(self.radar_range)
         clean_radar = radar[radar_mask]
-        input_dict["radar"] = clean_radar
+        
+        points = clean_radar.tensor.numpy()
 
+        # print('RADAR POINTS BEFORE PAD OR DROP', points.shape)
+        points, num_points = self._pad_or_drop(points)
+        # print('RADAR POINTS AFTER PAD OR DROP', points.shape, num_points)
+
+        clean_radar = RadarPoints(
+            points, points_dim=points.shape[-1], attribute_dims=None
+        )
+
+        input_dict["radar"] = clean_radar
+        input_dict['num_points'] = num_points
 
         return input_dict
 
@@ -650,7 +699,7 @@ class GenerateRadarDepth():
         self.min_dist = min_dist
 
     def __call__(self, results):
-        lidar_points = results['radar'].tensor  # (N, 3) or (N, 4) radar points also in LIDAR coordinate system
+        radar_points = results['radar'].tensor  # (N, 3) or (N, 4) radar points also in LIDAR coordinate system
         images = results['img']  # List of 6 images
         intrinsics = results['intrinsics']  # List of 6 (4, 4) matrices
         extrinsics = results['extrinsics']  # List of 6 (4, 4) matrices
@@ -659,7 +708,7 @@ class GenerateRadarDepth():
         
         depth_maps = []
         for i in range(len(images)):
-            depth_map = get_lidar_depth(lidar_points.detach(), images[i], extrinsics[i], intrinsics[i])
+            depth_map = get_lidar_depth(radar_points.detach()[:, :4], images[i], extrinsics[i], intrinsics[i])
             depth_maps.append(depth_map)
         
         results['radar_depth'] = depth_maps
@@ -708,15 +757,15 @@ class LoadMultiViewSegMaskFromFiles(object):
         # img is of shape (h, w, c, num_views)
         img = [mmcv.imread(name.replace('samples', 'seg_mask'), self.color_type) for name in filename]
         
-        seg_mask = list()
+        seg_masks = list()
         for seg_mask in img:
             seg_mask_roi = list()
             for i in self.semantic_mask_used_mask:
                 seg_mask_roi.append(np.where(seg_mask==i, 1, 0))
             seg_mask_roi = np.sum(np.stack(seg_mask_roi, axis=0), axis=0)
-            seg_mask.append(seg_mask_roi)
+            seg_masks.append(seg_mask_roi)
 
-        img = np.stack(seg_mask, axis=-1)
+        img = np.stack(seg_masks, axis=-1)
         if self.to_float32:
             img = img.astype(np.float32)
         results['seg_mask_filename'] = filename

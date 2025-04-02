@@ -31,7 +31,7 @@ class_names = [
 num_gpus = 1
 batch_size = 4
 num_epochs = 90
-num_iters_per_epoch = 323 // (num_gpus * batch_size)
+num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 
 queue_length = 1
 num_frame_losses = 1
@@ -44,43 +44,43 @@ input_modality = dict(
     use_external=True)
 model = dict(
     type='SBD_BIG',
-    num_frame_head_grads=num_frame_losses,
-    num_frame_backbone_grads=num_frame_losses,
-    num_frame_losses=num_frame_losses,
-    use_grid_mask=True,
-    img_backbone=dict(
-        init_cfg=dict(
-            type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
-            prefix='backbone.'),       
-        type='ResNet',
-        depth=18,
-        num_stages=4,
-        out_indices=(2, 3),
-        frozen_stages=-1,
-        norm_cfg=dict(type='BN2d', requires_grad=False),
-        norm_eval=True,
-        with_cp=True,
-        style='pytorch'),
-    img_neck=dict(
-        type='CPFPN',  ###remove unused parameters 
-        in_channels=[256, 512],
-        out_channels=256,
-        num_outs=2),
+    # num_frame_head_grads=num_frame_losses,
+    # num_frame_backbone_grads=num_frame_losses,
+    # num_frame_losses=num_frame_losses,
+    # use_grid_mask=True,
+    # img_backbone=dict(
+    #     init_cfg=dict(
+    #         type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
+    #         prefix='backbone.'),       
+    #     type='ResNet',
+    #     depth=18,
+    #     num_stages=4,
+    #     out_indices=(2, 3),
+    #     frozen_stages=-1,
+    #     norm_cfg=dict(type='BN2d', requires_grad=False),
+    #     norm_eval=True,
+    #     with_cp=True,
+    #     style='pytorch'),
+    # img_neck=dict(
+    #     type='CPFPN',  ###remove unused parameters 
+    #     in_channels=[256, 512],
+    #     out_channels=256,
+    #     num_outs=2),
     depth_model=dict(
-        type='MatrixVT',
-        x_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
-        y_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
-        z_bound=[-5, 3, 8],  # BEV grids bounds and size (m)
-        d_bound=[2.0, 58.0, 0.5],  # Categorical Depth bounds and division (m)
-        final_dim=(256, 704),  # img size for model input (pix)
-        output_channels=64,  # BEV feature channels
-        downsample_factor=16,  # ds factor of the feature to be projected to BEV (e.g. 256x704 -> 16x44)  # noqa
-        depth_net_conf=dict(in_channels=256, mid_channels=256),
-        loss_depth=dict(
-            type='DepthLoss',
-            dbound=[2.0, 58.0, 0.5],
-            downsample_factor=16,
-            loss_weight=3.0),
+        type='SBD',
+        # x_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
+        # y_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
+        # z_bound=[-5, 3, 8],  # BEV grids bounds and size (m)
+        # d_bound=[2.0, 58.0, 0.5],  # Categorical Depth bounds and division (m)
+        # final_dim=(256, 704),  # img size for model input (pix)
+        # output_channels=64,  # BEV feature channels
+        # downsample_factor=16,  # ds factor of the feature to be projected to BEV (e.g. 256x704 -> 16x44)  # noqa
+        # depth_net_conf=dict(in_channels=256, mid_channels=256),
+        # loss_depth=dict(
+        #     type='DepthLoss',
+        #     dbound=[2.0, 58.0, 0.5],
+        #     downsample_factor=16,
+        #     loss_weight=3.0),
     ),
 )
 
@@ -120,7 +120,7 @@ train_pipeline = [
     dict(type='GenerateRadarDepth'),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_bbox=True,
         with_label=True, with_bbox_depth=True),
-    dict(type='RadarRangeFilter', radar_range=bev_range),
+    dict(type='RadarRangeFilter', radar_range=bev_range, max_num=2048),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
     dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=True),
@@ -135,11 +135,12 @@ train_pipeline = [
     dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='PETRFormatBundle3D', class_names=class_names, collect_keys=collect_keys + ['prev_exists']),
     dict(type='MyTransform',),
-    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists', 'lidar', 'depth_maps', 'radar_depth', 'seg_mask'] + collect_keys,
+    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists', 'lidar', 'depth_maps', 'radar_depth', 'seg_mask', 'num_points'] + collect_keys,
              meta_keys=('filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token', 'gt_bboxes_3d','gt_labels_3d','lidar2img','radar_aug_matrix', 'pcd_scale_factor'))
 ]
 test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+    dict(type='LoadMultiViewSegMaskFromFiles', semantic_mask_used_mask=[0, 1, 4, 12, 20, 32, 80, 83, 93, 127, 102, 116], to_float32=True),
     dict(
         type='LoadRadarPointsMultiSweeps',
         load_dim=18,
@@ -157,7 +158,7 @@ test_pipeline = [
     dict(type='GenerateLidarDepth'),
     dict(type='GenerateRadarDepth'),
 
-    dict(type='RadarRangeFilter', radar_range=bev_range),
+    dict(type='RadarRangeFilter', radar_range=bev_range, max_num=2048),
     dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False, with_depth=True),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='PadMultiViewImage', size_divisor=32, training=True),
@@ -173,14 +174,14 @@ test_pipeline = [
                 class_names=class_names,
                 with_label=False),
             dict(type='MyTransform', training=True),
-            dict(type='Collect3D', keys=['img','radar', 'lidar', 'depth_maps', 'radar_depth'] + collect_keys,
+            dict(type='Collect3D', keys=['img','radar', 'lidar', 'depth_maps', 'radar_depth', 'num_points', 'seg_mask'] + collect_keys,
             meta_keys=('filename', 'ori_shape', 'img_shape','pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token','lidar2img'))
         ]), 
 ]
 
 data = dict(
     samples_per_gpu=batch_size,
-    workers_per_gpu=6,
+    workers_per_gpu=4,
     train=dict(
         type=dataset_type,
         data_root=data_root,
@@ -229,7 +230,7 @@ lr_config = dict(
 # evaluation = dict(interval=1, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch*num_epochs+1, pipeline=test_pipeline)
-evaluation = dict(interval=1, metric='epe:0-80', save_best='epe:0-80', rule='less')
+evaluation = dict(interval=num_iters_per_epoch*num_epochs+1, metric='epe:0-80', save_best='epe:0-80', rule='less')
 
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
@@ -238,7 +239,7 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # runner = dict(
 #     type='EpochBasedRunner', max_epochs=num_epochs)
 
-checkpoint_config = dict(interval=1, max_keep_ckpts=3)
+checkpoint_config = dict(interval=1000, max_keep_ckpts=3)
 
 # checkpoint_config = dict(
 #     max_keep_ckpts=3,
@@ -257,17 +258,17 @@ log_config = dict(
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(
-        #     type='WandbLoggerHook',
-        #     init_kwargs=dict(
-        #         project='radar-camera',   # Название проекта в WandB
-        #         name='lab_comp MatrixVT depth_net camera',     # Имя эксперимента
-        #         config=dict(                # Дополнительные настройки эксперимента
-        #             batch_size=batch_size,
-        #             model='matrixvt',
-        #         )
-        #     )
-        # ),
+        dict(
+            type='WandbLoggerHook',
+            init_kwargs=dict(
+                project='radar-camera',   # Название проекта в WandB
+                name='lab_comp SBD',     # Имя эксперимента
+                config=dict(                # Дополнительные настройки эксперимента
+                    batch_size=batch_size,
+                    model='SBD',
+                )
+            )
+        ),
     ],
 )
 

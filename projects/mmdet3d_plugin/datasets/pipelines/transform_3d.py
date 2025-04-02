@@ -152,6 +152,7 @@ class ResizeCropFlipRotImage():
         if self.with_depth:
             depth_maps = results['depth_maps']
             radar_maps = results['radar_depth']
+            seg_masks = results['seg_mask']
             # print('depth_maps', type(depth_maps), len(depth_maps), type(depth_maps[0]), depth_maps[0].shape)
 
         N = len(imgs)
@@ -159,6 +160,7 @@ class ResizeCropFlipRotImage():
         if self.with_depth:
             new_depth_maps = []
             new_radar_depth = []
+            new_seg_masks = []
         new_gt_bboxes = []
         new_centers2d = []
         new_gt_labels = []
@@ -175,6 +177,7 @@ class ResizeCropFlipRotImage():
             if self.with_depth:
                 depth_map = Image.fromarray(np.uint8(depth_maps[i]))
                 radar_map = Image.fromarray(np.uint8(radar_maps[i]))
+                seg_mask = Image.fromarray(np.uint8(seg_masks[i]))
             img, ida_mat = self._img_transform(
                 img,
                 resize=resize,
@@ -195,6 +198,15 @@ class ResizeCropFlipRotImage():
                 )
                 radar_map, _ = self._img_transform(
                     radar_map,
+                    resize=resize,
+                    resize_dims=resize_dims,
+                    crop=crop,
+                    flip=flip,
+                    rotate=rotate,
+                )
+
+                seg_mask, _ = self._img_transform(
+                    seg_mask,
                     resize=resize,
                     resize_dims=resize_dims,
                     crop=crop,
@@ -229,6 +241,7 @@ class ResizeCropFlipRotImage():
             if self.with_depth:
                 new_depth_maps.append(np.array(depth_map).astype(np.float32))
                 new_radar_depth.append(np.array(radar_map).astype(np.float32))
+                new_seg_masks.append(np.array(seg_mask).astype(np.float32))
 
 
             ida_mat_ext = torch.eye(4, dtype=ida_mat.dtype, device=ida_mat.device)  # Создаем 4x4 единичную матрицу
@@ -243,6 +256,7 @@ class ResizeCropFlipRotImage():
         if self.with_depth:
             results['depth_maps'] = new_depth_maps
             results['radar_depth'] = new_radar_depth
+            results['seg_mask'] = new_seg_masks
         results['ida_mat'] = ida_mats  # Добавляем в results
         results['lidar2img'] = [results['intrinsics'][i] @ results['extrinsics'][i] for i in range(len(results['extrinsics']))]
 

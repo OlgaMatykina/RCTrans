@@ -459,11 +459,11 @@ class SBD(nn.Module):
         
         self.calibrated_params_encoder = FullyConnectedEncoder(input_channels=3,)
 
-    def forward(self, return_loss, mini_batch_data):
-        if return_loss:
-            return self.forward_train(mini_batch_data)
-        else:
-            return self.forward_test(mini_batch_data)
+    # def forward(self, return_loss, mini_batch_data):
+    #     if return_loss:
+    #         return self.forward_train(mini_batch_data)
+    #     else:
+    #         return self.forward_test(mini_batch_data)
         
     def init_weights(self):
         """Custom weight initialization"""
@@ -493,24 +493,24 @@ class SBD(nn.Module):
 
         img_dw2 = nnf.interpolate(img, scale_factor=0.5,  mode="bilinear")        
         radar_dw2 = self.downsample_depthmap(radar, 0.5)
-        data_dw2 =  torch.concat((img_dw2,radar_dw2), dim=1)
+        data_dw2 =  torch.cat((img_dw2,radar_dw2), dim=1)
         
         img_dw4 = nnf.interpolate(img, scale_factor=0.25, mode="bilinear")
         radar_dw4 = self.downsample_depthmap(radar, 0.25)
-        data_dw4 =  torch.concat((img_dw4,radar_dw4),dim=1)
+        data_dw4 =  torch.cat((img_dw4,radar_dw4),dim=1)
         
         pred1_dw4, valid1_dw4, fm1_dw8 = self.G1(data_dw4)
         
         fm1_dw8 = fm1_dw8 + valid_radar_pts_emb
         fm1_dw2  = nnf.interpolate(fm1_dw8, scale_factor=4., mode="bilinear")
 
-        data_dw2 = torch.concat([data_dw2, fm1_dw2], dim=1)
+        data_dw2 = torch.cat([data_dw2, fm1_dw2], dim=1)
         pred2_dw2, valid2_dw2, fm2_dw4 = self.G2(data_dw2)
         
         fm2_dw4 = fm2_dw4 + valid_radar_pts_emb
         fm2 = nnf.interpolate(fm2_dw4, scale_factor=4., mode="bilinear")
 
-        data = torch.concat((img, radar, fm2), axis=1)
+        data = torch.cat((img, radar, fm2), axis=1)
         pred3, valid3, _ = self.G3(data)
         
         return [pred1_dw4, pred2_dw2, pred3], [valid1_dw4, valid2_dw2, valid3]
@@ -576,12 +576,12 @@ class SBD(nn.Module):
 
     def forward_train(self, mini_batch_data:dict):
         img              = self.padding(self.make_torch_tensor(mini_batch_data["img"], self.device, self.dtype))
-        label            = self.padding(self.make_torch_tensor(mini_batch_data["label"], self.device, self.dtype))
-        label_mask       = self.padding(self.make_torch_tensor(mini_batch_data['label_mask'], self.device, self.dtype))
-        radar            = self.padding(self.make_torch_tensor(mini_batch_data['radar'], self.device, self.dtype))
-        valid_label      = self.padding(self.make_torch_tensor(mini_batch_data['seg_mask_roi'], self.device, self.dtype))
-        radar_pts      = self.make_torch_tensor(mini_batch_data['radar_pts'], self.device, self.dtype)
-        valid_radar_pts_cnts      = self.make_torch_tensor(mini_batch_data['valid_radar_pts_cnt'], self.device, torch.long)
+        label            = self.padding(self.make_torch_tensor(mini_batch_data["depth_maps"], self.device, self.dtype))
+        label_mask       = self.padding(self.make_torch_tensor(mini_batch_data['lidar_mask'], self.device, self.dtype))
+        radar            = self.padding(self.make_torch_tensor(mini_batch_data['radar_depth'], self.device, self.dtype))
+        valid_label      = self.padding(self.make_torch_tensor(mini_batch_data['seg_mask'], self.device, self.dtype))
+        radar_pts      = self.make_torch_tensor(mini_batch_data['radar'], self.device, self.dtype)
+        valid_radar_pts_cnts      = self.make_torch_tensor(mini_batch_data['num_points'], self.device, torch.long)
 
         pred_pyramid, valid_pyramid = self.forward_net(img, radar, radar_pts, valid_radar_pts_cnts)
 
@@ -611,7 +611,7 @@ class SBD(nn.Module):
             losses.append(train_loss / scale)  # Add weight here
 
         loss = sum(losses)
-        return loss, monitors
+        return losses, monitors
 
 
     def forward_eval(        
@@ -621,12 +621,12 @@ class SBD(nn.Module):
         
         B,C, H, W = mini_batch_data["img"].shape
         img              = self.padding(self.make_torch_tensor(mini_batch_data["img"],        self.device, self.dtype))
-        label            = self.padding(self.make_torch_tensor(mini_batch_data["label"],      self.device, self.dtype))
-        label_mask       = self.padding(self.make_torch_tensor(mini_batch_data['label_mask'], self.device, self.dtype))
-        radar            = self.padding(self.make_torch_tensor(mini_batch_data['radar'],      self.device, self.dtype))
-        valid_label      = self.padding(self.make_torch_tensor(mini_batch_data['seg_mask_roi'],      self.device, self.dtype))
-        radar_pts      = self.make_torch_tensor(mini_batch_data['radar_pts'], self.device, self.dtype)
-        valid_radar_pts_cnts      = self.make_torch_tensor(mini_batch_data['valid_radar_pts_cnt'], self.device, torch.long)
+        label            = self.padding(self.make_torch_tensor(mini_batch_data["depth_maps"],      self.device, self.dtype))
+        label_mask       = self.padding(self.make_torch_tensor(mini_batch_data['lidar_mask'], self.device, self.dtype))
+        radar            = self.padding(self.make_torch_tensor(mini_batch_data['radar_depth'],      self.device, self.dtype))
+        valid_label      = self.padding(self.make_torch_tensor(mini_batch_data['seg_mask'],      self.device, self.dtype))
+        radar_pts      = self.make_torch_tensor(mini_batch_data['radar'], self.device, self.dtype)
+        valid_radar_pts_cnts      = self.make_torch_tensor(mini_batch_data['num_points'], self.device, torch.long)
 
         idx = torch.randint(low=0, high=img.shape[0], size=(1, ))[0]
         img              = img[idx, None, ...]

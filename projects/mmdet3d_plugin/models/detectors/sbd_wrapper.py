@@ -320,14 +320,40 @@ class SBD_BIG(MVXTwoStageDetector):
         augmentations.
         """
 
-        # if return_loss:
-        #     for key in ['gt_bboxes_3d', 'gt_labels_3d', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'img_metas']:
-        #         data[key] = list(zip(*data[key]))
-        #     return self.forward_train(**data)
-        # else:
-        #     return self.forward_test(**data)
-        for key, value in data.items():
-            print(key, type(value))
+        # for key, value in data.items():
+        #     try:
+        #         print(key, value.shape)
+        #     except:
+        #         print(key, len(value))
+
+        data['img'] = data['img'].squeeze()
+        data['depth_maps'] = data['depth_maps'].squeeze()
+        data['radar_depth'] = data['radar_depth'].squeeze()
+        data['seg_mask'] = data['seg_mask'].squeeze()
+
+        B, N, C, H, W = data['img'].shape
+        data['img'] =  data['img'].view(-1, *data['img'].shape[2:])
+        data['depth_maps'] =  data['depth_maps'].view(-1, *data['depth_maps'].shape[2:]).unsqueeze(1)
+        data['radar_depth'] =  data['radar_depth'].view(-1, *data['radar_depth'].shape[2:]).unsqueeze(1)
+        data['seg_mask'] =  data['seg_mask'].view(-1, *data['seg_mask'].shape[2:]).unsqueeze(1)
+
+        # for instance in data['radar']:
+        #     print(instance.shape)
+        # for instance in data['num_points']:
+        #     print(instance)
+
+        data['radar'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['radar']])
+        # data['lidar'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['lidar']])
+        data['num_points'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['num_points']])
+
+        data['lidar_mask'] = binary_tensor = (data['depth_maps'] > 0).to(torch.int)
+
+        if return_loss:
+            loss, monitor = self.depth_model.forward_train(data)
+            return {'valid_loss': loss[0], 'train_loss': loss[1]}
+        else:
+            return self.depth_model.forward_eval(data)
+
 
     def forward_train(self,
                       img_metas=None,
