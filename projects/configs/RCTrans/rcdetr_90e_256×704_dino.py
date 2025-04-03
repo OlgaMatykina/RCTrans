@@ -71,9 +71,9 @@ model = dict(
         ),
     img_neck=dict(
         type='CPFPN',  ###remove unused parameters 
-        in_channels=[256, 512],
+        in_channels=[384],
         out_channels=256,
-        num_outs=2),
+        num_outs=1),
     img_roi_head=dict(
         type='FocalHead',
         num_classes=10,
@@ -198,8 +198,8 @@ model = dict(
 
 
 dataset_type = 'CustomNuScenesDataset'
-data_root = '/home/docker_rctrans/HPR2/nuscenes/'
-ann_root = '/home/docker_rctrans/HPR2/'
+data_root = '/home/docker_rctrans/HPR3/nuscenes/'
+ann_root = '/home/docker_rctrans/HPR3/'
 file_client_args = dict(backend='disk')
 
 
@@ -333,18 +333,18 @@ custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
 log_config = dict(
     interval=5,
     hooks=[
-        # dict(type='TextLoggerHook'),
-        dict(
-            type='WandbLoggerHook',
-            init_kwargs=dict(
-                project='radar-camera',   # Название проекта в WandB
-                name='RCTrans',     # Имя эксперимента
-                config=dict(                # Дополнительные настройки эксперимента
-                    batch_size=batch_size,
-                    model='rcdetr',
-                )
-            )
-        ),
+        dict(type='TextLoggerHook'),
+        # dict(
+        #     type='WandbLoggerHook',
+        #     init_kwargs=dict(
+        #         project='radar-camera',   # Название проекта в WandB
+        #         name='RCTrans',     # Имя эксперимента
+        #         config=dict(                # Дополнительные настройки эксперимента
+        #             batch_size=batch_size,
+        #             model='rcdetr',
+        #         )
+        #     )
+        # ),
     ],
 )
 

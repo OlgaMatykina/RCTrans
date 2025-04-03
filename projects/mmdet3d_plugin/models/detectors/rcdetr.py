@@ -109,9 +109,10 @@ class RCDETR(MVXTwoStageDetector):
             if self.use_grid_mask:
                 img = self.grid_mask(img)
 
-            img_feats = self.img_backbone.forward(img, self.img_backbone.facet)
+            img_feats = self.img_backbone.forward(img, facet=self.img_backbone.facet)
             img_feats = img_feats.transpose(2,3)
-            img_feats = img_feats(features, 'b 1 c (h w) -> b 1 c h w', h=self.img_backbone.num_patches_h).squeeze(1)
+            img_feats = rearrange(img_feats, 'b 1 c (h w) -> b 1 c h w', h=self.img_backbone.num_patches_h).squeeze(dim=1)
+            img_feats = [img_feats]
             if isinstance(img_feats, dict):
                 img_feats = list(img_feats.values())
         else:
