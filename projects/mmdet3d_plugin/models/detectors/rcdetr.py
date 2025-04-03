@@ -19,6 +19,7 @@ from projects.mmdet3d_plugin.models.utils.misc import locations
 from mmdet3d.models import builder
 import torch.nn.functional as F
 from projects.mmdet3d_plugin import SPConvVoxelization
+from einops import rearrange
 
 @DETECTORS.register_module()
 class RCDETR(MVXTwoStageDetector):
@@ -108,7 +109,9 @@ class RCDETR(MVXTwoStageDetector):
             if self.use_grid_mask:
                 img = self.grid_mask(img)
 
-            img_feats = self.img_backbone(img)
+            img_feats = self.img_backbone.forward(img, self.img_backbone.facet)
+            img_feats = img_feats.transpose(2,3)
+            img_feats = img_feats(features, 'b 1 c (h w) -> b 1 c h w', h=self.img_backbone.num_patches_h).squeeze(1)
             if isinstance(img_feats, dict):
                 img_feats = list(img_feats.values())
         else:

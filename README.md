@@ -77,6 +77,9 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py 1
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_bevloss.py 1 --work-dir work_dirs/rctrans/
 
 bash mmdetection3d/tools/dist_train.sh projects/configs/MyFirstModel/pointpillar.py 1 --work-dir work_dirs/pointpillar/
+
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/dino/
+
 ```
 Evaluation
 ```
