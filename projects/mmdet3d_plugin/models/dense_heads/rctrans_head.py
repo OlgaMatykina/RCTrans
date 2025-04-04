@@ -953,6 +953,8 @@ class RCTransHead(AnchorFreeHead):
 
         loss_cls = torch.nan_to_num(loss_cls)
         loss_bbox = torch.nan_to_num(loss_bbox)
+        print('LOSS GRAD', loss_cls.requires_grad)
+        print('LOSS GRAD', loss_bbox.requires_grad)
         return loss_cls, loss_bbox
 
    
