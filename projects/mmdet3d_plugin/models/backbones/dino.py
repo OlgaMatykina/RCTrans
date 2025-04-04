@@ -3,7 +3,7 @@ import types
 
 import timm
 import torch
-torch.set_grad_enabled(False)
+torch.set_grad_enabled(True)
 from torch import nn
 from PIL import Image
 from loguru import logger

@@ -28,7 +28,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 4
+batch_size = 2
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
