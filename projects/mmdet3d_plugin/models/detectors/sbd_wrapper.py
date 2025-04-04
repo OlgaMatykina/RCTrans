@@ -346,11 +346,12 @@ class SBD_BIG(MVXTwoStageDetector):
         # data['lidar'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['lidar']])
         data['num_points'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['num_points']])
 
-        data['lidar_mask'] = binary_tensor = (data['depth_maps'] > 0).to(torch.int)
+        data['lidar_mask'] = (data['depth_maps'] > 0).to(torch.int)
 
         if return_loss:
             loss, monitor = self.depth_model.forward_train(data)
             return {'valid_loss': loss[0], 'train_loss': loss[1]}
+            # return {'loss': loss}
         else:
             return self.depth_model.forward_eval(data)
 

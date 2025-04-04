@@ -457,7 +457,7 @@ class SBD(nn.Module):
         self.G2  = UNet(12)       # 1/2      
         self.G3  = UNet(12)       # 1      
         
-        self.calibrated_params_encoder = FullyConnectedEncoder(input_channels=3,)
+        self.calibrated_params_encoder = FullyConnectedEncoder(input_channels=6,)
 
     # def forward(self, return_loss, mini_batch_data):
     #     if return_loss:

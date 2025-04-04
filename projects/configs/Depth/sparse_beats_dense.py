@@ -29,7 +29,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 4
+batch_size = 10
 num_epochs = 90
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 
@@ -86,8 +86,8 @@ model = dict(
 
 
 dataset_type = 'CustomNuScenesDepthDataset'
-data_root = '../HPR3/nuscenes/'
-ann_root = '../HPR3/'
+data_root = '../HPR1/nuScenes2d/nuscenes/'
+ann_root = '../HPR1/nuScenes2d/'
 file_client_args = dict(backend='disk')
 
 
@@ -216,7 +216,7 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=8, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=3, grad_clip=dict(max_norm=35, norm_type=2))
 
 # learning policy
 lr_config = dict(
@@ -239,7 +239,7 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # runner = dict(
 #     type='EpochBasedRunner', max_epochs=num_epochs)
 
-checkpoint_config = dict(interval=1000, max_keep_ckpts=3)
+checkpoint_config = dict(interval=100, max_keep_ckpts=3)
 
 # checkpoint_config = dict(
 #     max_keep_ckpts=3,
@@ -250,7 +250,7 @@ runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
 load_from=None
 # resume_from='work_dirs/rctrans_gt_depth/iter_40004.pth'
-resume_from=None
+resume_from='work_dirs/sbd/latest.pth'
 # custom_hooks = [dict(type='EMAHook')]
 # custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
 
@@ -262,10 +262,10 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='lab_comp SBD',     # Имя эксперимента
+                name='cds2 SBD',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
-                    model='SBD',
+                    model='cds2 SBD',
                 )
             )
         ),
