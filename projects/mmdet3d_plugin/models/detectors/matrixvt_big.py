@@ -20,6 +20,7 @@ from mmdet3d.models import builder
 import torch.nn.functional as F
 from torch.cuda.amp import autocast
 from projects.mmdet3d_plugin import SPConvVoxelization
+from einops import rearrange
 
 from projects.mmdet3d_plugin.models.backbones.matrixvt_slim import MatrixVT
 
@@ -59,6 +60,7 @@ class MatrixVT_BIG(MVXTwoStageDetector):
                  radar_neck=None,
                  depth_loss=None,
                  depth_model=None,
+                 radar_depth_model=None,
                  ):
         super(MatrixVT_BIG, self).__init__(pts_voxel_layer, pts_voxel_encoder,
                              pts_middle_encoder, pts_fusion_layer,
@@ -125,6 +127,7 @@ class MatrixVT_BIG(MVXTwoStageDetector):
 
         # self.depth_model = MatrixVT(**backbone_conf).cuda()
         self.depth_model = builder.build_backbone(depth_model)
+        self.radar_depth_model = builder.build_backbone(radar_depth_model)
 
     def extract_img_feat(self, img, len_queue=1, training_mode=False):
         """Extract features of images."""
@@ -173,7 +176,7 @@ class MatrixVT_BIG(MVXTwoStageDetector):
 
         return img_feats_reshaped
     
-    def img_feats_to_bev(self, img_feats, ida_mat, intrinsics, sensor2ego):
+    def img_feats_to_bev(self, img_feats, ida_mat, intrinsics, sensor2ego, external_depth):
         if img_feats.dim() == 5:
             new_img_feats = img_feats.unsqueeze(dim=1)
             sensor2ego = sensor2ego.unsqueeze(dim=1)
@@ -193,6 +196,7 @@ class MatrixVT_BIG(MVXTwoStageDetector):
         
         # for inference and deployment where intrin & extrin mats are static
         # model.static_mat = model.get_proj_mat(mats_dict)
+        
 
         bev_feature, depth = self.depth_model(
             new_img_feats, {
@@ -202,6 +206,7 @@ class MatrixVT_BIG(MVXTwoStageDetector):
                 # 'sensor2sensor_mats': torch.rand((1, 1, 6, 4, 4)),
                 'bda_mat': torch.eye(4).unsqueeze(0).repeat(new_img_feats.shape[0], 1, 1).to(intrinsics.device),
             },
+            external_depth,
             is_return_depth=True)
 
         # print('BEV SHAPE', bev_feature.shape, 'DEPTH SHAPE', depth.shape)
@@ -244,7 +249,7 @@ class MatrixVT_BIG(MVXTwoStageDetector):
             return_losses = False
             data_t = dict()
             for key in data:
-                if key not in ['radar', 'radar_feats', 'bev_feats', 'lidar', 'depth_maps', 'prev_exists']:
+                if key not in ['radar', 'radar_feats', 'bev_feats', 'lidar', 'depth_maps', 'prev_exists', 'num_points', 'radar_depth', 'seg_mask']:
                     data_t[key] = data[key][:, i]
                 else:
                     data_t[key] = data[key]
@@ -300,15 +305,22 @@ class MatrixVT_BIG(MVXTwoStageDetector):
         #     except:
         #         print(key, type(value))
 
+        outs = self.radar_depth_model.forward_train(data)
+
+        external_depth, _ =  outs
+        B, N, S, C, H, W = data['img_feats']
+        external_depth = external_depth[-1][:,:, :H,:W]
+        external_depth = rearrange(external_depth, '(b n) c h w -> b n 1 c h w', b=B)
+
         if not requires_grad:
             self.eval()
             with torch.no_grad():
-                bev_features, depth = self.img_feats_to_bev(data['img_feats'], data['ida_mat'], data['intrinsics'], data['sensor2ego'])
+                bev_features, depth = self.img_feats_to_bev(data['img_feats'], data['ida_mat'], data['intrinsics'], data['sensor2ego'], external_depth)
                 outs = depth
             self.train()
 
         else:
-            bev_features, depth = self.img_feats_to_bev(data['img_feats'], data['ida_mat'], data['intrinsics'], data['sensor2ego'])
+            bev_features, depth = self.img_feats_to_bev(data['img_feats'], data['ida_mat'], data['intrinsics'], data['sensor2ego'], external_depth)
             outs = depth
 
         if return_losses:
@@ -347,7 +359,7 @@ class MatrixVT_BIG(MVXTwoStageDetector):
                       gt_bboxes_ignore=None,
                       depths=None,
                       centers2d=None,
-                      depth_maps=None,
+                    #   depth_maps=None,
                       **data):
         """Forward training function.
         Args:
@@ -372,7 +384,7 @@ class MatrixVT_BIG(MVXTwoStageDetector):
         Returns:
             dict: Losses of different branches.
         """
-
+        depth_maps = data['depth_maps']
         T = data['img'].size(1)
         # print('num_sweeps', T)
         prev_img = data['img'][:, :-self.num_frame_backbone_grads]

@@ -27,6 +27,9 @@ from mmdet.apis import set_random_seed
 from mmseg import __version__ as mmseg_version
 from mmcv.utils import TORCH_VERSION, digit_version
 
+import sys
+sys.path.append('/home/docker_rctrans/RCTrans')
+
 # torch.autograd.set_detect_anomaly(True)
 # from memory_profiler import profile
 

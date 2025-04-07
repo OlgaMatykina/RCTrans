@@ -29,9 +29,9 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 2
+batch_size = 4
 num_epochs = 90
-num_iters_per_epoch = 28130 // (num_gpus * batch_size)
+num_iters_per_epoch = 323 // (num_gpus * batch_size)
 
 queue_length = 1
 num_frame_losses = 1
@@ -43,44 +43,47 @@ input_modality = dict(
     use_map=False,
     use_external=True)
 model = dict(
-    type='SBD_BIG',
-    # num_frame_head_grads=num_frame_losses,
-    # num_frame_backbone_grads=num_frame_losses,
-    # num_frame_losses=num_frame_losses,
-    # use_grid_mask=True,
-    # img_backbone=dict(
-    #     init_cfg=dict(
-    #         type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
-    #         prefix='backbone.'),       
-    #     type='ResNet',
-    #     depth=18,
-    #     num_stages=4,
-    #     out_indices=(2, 3),
-    #     frozen_stages=-1,
-    #     norm_cfg=dict(type='BN2d', requires_grad=False),
-    #     norm_eval=True,
-    #     with_cp=True,
-    #     style='pytorch'),
-    # img_neck=dict(
-    #     type='CPFPN',  ###remove unused parameters 
-    #     in_channels=[256, 512],
-    #     out_channels=256,
-    #     num_outs=2),
+    type='MatrixVT_BIG',
+    num_frame_head_grads=num_frame_losses,
+    num_frame_backbone_grads=num_frame_losses,
+    num_frame_losses=num_frame_losses,
+    use_grid_mask=True,
+    img_backbone=dict(
+        init_cfg=dict(
+            type='Pretrained', checkpoint="/home/docker_rctrans/RCTrans/ckpts/resnet18-nuimages-pretrained-e2e.pth",
+            prefix='backbone.'),       
+        type='ResNet',
+        depth=18,
+        num_stages=4,
+        out_indices=(2, 3),
+        frozen_stages=-1,
+        norm_cfg=dict(type='BN2d', requires_grad=False),
+        norm_eval=True,
+        with_cp=True,
+        style='pytorch'),
+    img_neck=dict(
+        type='CPFPN',  ###remove unused parameters 
+        in_channels=[256, 512],
+        out_channels=256,
+        num_outs=2),
     depth_model=dict(
+        type='MatrixVT',
+        x_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
+        y_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
+        z_bound=[-5, 3, 8],  # BEV grids bounds and size (m)
+        d_bound=[2.0, 58.0, 0.5],  # Categorical Depth bounds and division (m)
+        final_dim=(256, 704),  # img size for model input (pix)
+        output_channels=64,  # BEV feature channels
+        downsample_factor=16,  # ds factor of the feature to be projected to BEV (e.g. 256x704 -> 16x44)  # noqa
+        depth_net_conf=dict(in_channels=256, mid_channels=256),
+        loss_depth=dict(
+            type='DepthLoss',
+            dbound=[2.0, 58.0, 0.5],
+            downsample_factor=16,
+            loss_weight=3.0),
+    ),
+    radar_depth_model=dict(
         type='SBD',
-        # x_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
-        # y_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
-        # z_bound=[-5, 3, 8],  # BEV grids bounds and size (m)
-        # d_bound=[2.0, 58.0, 0.5],  # Categorical Depth bounds and division (m)
-        # final_dim=(256, 704),  # img size for model input (pix)
-        # output_channels=64,  # BEV feature channels
-        # downsample_factor=16,  # ds factor of the feature to be projected to BEV (e.g. 256x704 -> 16x44)  # noqa
-        # depth_net_conf=dict(in_channels=256, mid_channels=256),
-        # loss_depth=dict(
-        #     type='DepthLoss',
-        #     dbound=[2.0, 58.0, 0.5],
-        #     downsample_factor=16,
-        #     loss_weight=3.0),
     ),
 )
 
@@ -181,7 +184,7 @@ test_pipeline = [
 
 data = dict(
     samples_per_gpu=batch_size,
-    workers_per_gpu=4,
+    workers_per_gpu=6,
     train=dict(
         type=dataset_type,
         data_root=data_root,
@@ -192,7 +195,7 @@ data = dict(
         pipeline=train_pipeline,
         classes=class_names,
         modality=input_modality,
-        collect_keys=collect_keys + ['img', 'radar', 'prev_exists', 'img_metas', 'depth_maps', 'radar_depth'],
+        collect_keys=collect_keys + ['img', 'radar', 'prev_exists', 'img_metas', 'depth_maps'],
         queue_length=queue_length,
         test_mode=False,
         use_valid_flag=True,
@@ -230,7 +233,7 @@ lr_config = dict(
 # evaluation = dict(interval=1, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch*num_epochs+1, pipeline=test_pipeline)
-evaluation = dict(interval=num_iters_per_epoch*num_epochs+1, metric='epe:0-80', save_best='epe:0-80', rule='less')
+evaluation = dict(interval=1, metric='epe:0-80', save_best='epe:0-80', rule='less')
 
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
@@ -239,7 +242,7 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # runner = dict(
 #     type='EpochBasedRunner', max_epochs=num_epochs)
 
-checkpoint_config = dict(interval=1000, max_keep_ckpts=3)
+checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 
 # checkpoint_config = dict(
 #     max_keep_ckpts=3,
@@ -262,10 +265,10 @@ log_config = dict(
         #     type='WandbLoggerHook',
         #     init_kwargs=dict(
         #         project='radar-camera',   # Название проекта в WandB
-        #         name='lab_comp SBD',     # Имя эксперимента
+        #         name='lab_comp MatrixVT depth_net camera',     # Имя эксперимента
         #         config=dict(                # Дополнительные настройки эксперимента
         #             batch_size=batch_size,
-        #             model='SBD',
+        #             model='matrixvt',
         #         )
         #     )
         # ),

@@ -182,9 +182,9 @@ class DepthNet(nn.Module):
                                       padding=0)
         self.bn = nn.BatchNorm1d(27)
         self.depth_mlp = Mlp(27, mid_channels, mid_channels)
-        self.depth_se = SELayer(mid_channels)  # NOTE: add camera-aware
+        self.depth_se = SELayer(mid_channels)  # используется для глубины
         self.context_mlp = Mlp(27, mid_channels, mid_channels)
-        self.context_se = SELayer(mid_channels)  # NOTE: add camera-aware
+        self.context_se = SELayer(mid_channels)  # используется для контекста
         self.depth_conv = nn.Sequential(
             BasicBlock(mid_channels, mid_channels),
             BasicBlock(mid_channels, mid_channels),
@@ -206,22 +206,26 @@ class DepthNet(nn.Module):
                       padding=0),
         )
 
-    def forward(self, x, mats_dict):
-        # print('x shape', x.shape)
+    def forward(self, x, mats_dict, external_depth=None):
+        """
+        Аргументы:
+            x (Tensor): Изображение или фичи из backbone, размер [B, C, H, W]
+            mats_dict (dict): Словарь матриц (intrinsic, extrinsic и т.д.)
+            external_depth (Tensor, optional): Внешняя карта глубины. Если не None,
+                используется вместо вычисленного распределения глубины.
+        Возвращает:
+            Tensor: Конкатенация предсказанной (или внешней) глубины и контекстных признаков.
+        """
+        # Применяем свёрточное уменьшение размерности
+        x_reduced = self.reduce_conv(x)
+
+        # Формируем вход для MLP, как в оригинальной реализации
         intrins = mats_dict['intrin_mats'][:, 0:1, ..., :3, :3]
-        # print('intrins shape', intrins.shape)
         batch_size = intrins.shape[0]
         num_cams = intrins.shape[2]
         ida = mats_dict['ida_mats'][:, 0:1, ...]
-        # print('ida shape', ida.shape)
-
         sensor2ego = mats_dict['sensor2ego_mats'][:, 0:1, ..., :3, :]
-        # print('sensor2ego shape', sensor2ego.shape)
-
-        bda = mats_dict['bda_mat'].view(batch_size, 1, 1, 4,
-                                        4).repeat(1, 1, num_cams, 1, 1)
-        # print('bda shape', bda.shape)
-        
+        bda = mats_dict['bda_mat'].view(batch_size, 1, 1, 4, 4).repeat(1, 1, num_cams, 1, 1)
         mlp_input = torch.cat(
             [
                 torch.stack(
@@ -248,15 +252,27 @@ class DepthNet(nn.Module):
             ],
             -1,
         )
+        # Приводим размерность для BN
         mlp_input = self.bn(mlp_input.reshape(-1, mlp_input.shape[-1]))
-        x = self.reduce_conv(x)
+
+        # Вычисляем контекстные признаки через соответствующую MLP-ветвь и SELayer
         context_se = self.context_mlp(mlp_input)[..., None, None]
-        context = self.context_se(x, context_se)
+        context = self.context_se(x_reduced, context_se)
         context = self.context_conv(context)
-        depth_se = self.depth_mlp(mlp_input)[..., None, None]
-        depth = self.depth_se(x, depth_se)
-        depth = self.depth_conv(depth)
+
+        # Вычисляем распределение глубины, только если внешняя глубина не передана
+        if external_depth is None:
+            depth_se = self.depth_mlp(mlp_input)[..., None, None]
+            depth = self.depth_se(x_reduced, depth_se)
+            depth = self.depth_conv(depth)
+            # Здесь, как и раньше, предполагается, что по выходу depth производится softmax, например:
+            depth = depth.softmax(dim=1)
+        else:
+            depth = external_depth  # Используем внешнюю карту глубины
+
+        # Конкатенируем по канальному измерению: [глубина, контекст]
         return torch.cat([depth, context], dim=1)
+
 
 
 class HoriConv(nn.Module):
@@ -657,6 +673,7 @@ class MatrixVT(nn.Module):
                               sweep_index,
                               img_feats,
                               mats_dict,
+                              external_depth=None,
                               is_return_depth=False):
         (
             batch_size,
@@ -667,6 +684,8 @@ class MatrixVT(nn.Module):
             img_width,
         ) = img_feats.shape
         source_features = img_feats[:, 0, ...]
+        external_depth = external_depth.squeeze()
+        external_depth = self.get_downsampled_gt_depth(external_depth)
         # print('IMG FEATURES SHAPE', img_feats.shape, 'SOURCE FEATURES SHAPE', source_features.shape)
         depth_feature = self.depth_net(
             source_features.reshape(
@@ -676,6 +695,7 @@ class MatrixVT(nn.Module):
                 source_features.shape[4],
             ),
             mats_dict,
+            external_depth,
         )
         # print('DEPTH FEATURES SHAPE', depth_feature.shape)
         with autocast(enabled=False):
@@ -697,6 +717,7 @@ class MatrixVT(nn.Module):
     def forward(self,
                 sweep_imgs,
                 mats_dict,
+                external_depth,
                 timestamps=None,
                 is_return_depth=False):
         """Forward function.
@@ -730,6 +751,7 @@ class MatrixVT(nn.Module):
             0,
             sweep_imgs[:, 0:1, ...],
             mats_dict,
+            external_depth[:, 0:1, ...],
             is_return_depth=is_return_depth)
         if num_sweeps == 1:
             return key_frame_res
@@ -744,6 +766,7 @@ class MatrixVT(nn.Module):
                     sweep_index,
                     sweep_imgs[:, sweep_index:sweep_index + 1, ...],
                     mats_dict,
+                    external_depth[:, sweep_index:sweep_index + 1, ...],
                     is_return_depth=False)
                 ret_feature_list.append(feature_map)
 
@@ -773,47 +796,47 @@ class MatrixVT(nn.Module):
 
     #     return 3.0 * depth_loss
     
-    # def get_downsampled_gt_depth(self, gt_depths):
-    #     """
-    #     Input:
-    #         gt_depths: [B, N, H, W]
-    #     Output:
-    #         gt_depths: [B*N, d, H//downsample, W//downsample]
-    #     """
+    def get_downsampled_gt_depth(self, gt_depths):
+        """
+        Input:
+            gt_depths: [B, N, H, W]
+        Output:
+            gt_depths: [B*N, d, H//downsample, W//downsample]
+        """
 
-    #     if isinstance(gt_depths, list):
-    #         gt_depths = torch.stack(gt_depths, dim=0)
+        if isinstance(gt_depths, list):
+            gt_depths = torch.stack(gt_depths, dim=0)
 
-    #     B, S, N, H, W = gt_depths.shape
-    #     gt_depths = gt_depths.contiguous().view(
-    #         B * N,
-    #         H // self.downsample_factor,
-    #         self.downsample_factor,
-    #         W // self.downsample_factor,
-    #         self.downsample_factor,
-    #         1,
-    #     )
-    #     gt_depths = gt_depths.permute(0, 1, 3, 5, 2, 4).contiguous()
-    #     gt_depths = gt_depths.view(B * N, H // self.downsample_factor, W // self.downsample_factor, 
-    #                             self.downsample_factor * self.downsample_factor)
+        B, S, N, H, W = gt_depths.shape
+        gt_depths = gt_depths.contiguous().view(
+            B * N,
+            H // self.downsample_factor,
+            self.downsample_factor,
+            W // self.downsample_factor,
+            self.downsample_factor,
+            1,
+        )
+        gt_depths = gt_depths.permute(0, 1, 3, 5, 2, 4).contiguous()
+        gt_depths = gt_depths.view(B * N, H // self.downsample_factor, W // self.downsample_factor, 
+                                self.downsample_factor * self.downsample_factor)
 
-    #     gt_depths_tmp = torch.where(gt_depths == 0.0,
-    #                                 1e5 * torch.ones_like(gt_depths),
-    #                                 gt_depths)
-    #     gt_depths = torch.min(gt_depths_tmp, dim=-1).values
+        gt_depths_tmp = torch.where(gt_depths == 0.0,
+                                    1e5 * torch.ones_like(gt_depths),
+                                    gt_depths)
+        gt_depths = torch.min(gt_depths_tmp, dim=-1).values
 
-    #     gt_depths = (gt_depths - (self.dbound[0] - self.dbound[2])) / self.dbound[2]
-    #     gt_depths = torch.where(
-    #         (gt_depths < self.depth_channels + 1) & (gt_depths >= 0.0),
-    #         gt_depths, torch.zeros_like(gt_depths))
+        gt_depths = (gt_depths - (self.dbound[0] - self.dbound[2])) / self.dbound[2]
+        gt_depths = torch.where(
+            (gt_depths < self.depth_channels + 1) & (gt_depths >= 0.0),
+            gt_depths, torch.zeros_like(gt_depths))
 
-    #     # Теперь one_hot возвращает [B*N, H, W, d] вместо (B*N*h*w, d)
-    #     gt_depths = F.one_hot(gt_depths.long(), num_classes=self.depth_channels + 1)[..., 1:]
+        # Теперь one_hot возвращает [B*N, H, W, d] вместо (B*N*h*w, d)
+        gt_depths = F.one_hot(gt_depths.long(), num_classes=self.depth_channels + 1)[..., 1:]
 
-    #     # Изменяем на [B*N, d, H, W]
-    #     gt_depths = gt_depths.permute(0, 3, 1, 2).float()
+        # Изменяем на [B*N, d, H, W]
+        gt_depths = gt_depths.permute(0, 3, 1, 2).float()
 
-    #     return gt_depths
+        return gt_depths
 
 
 # if __name__ == '__main__':

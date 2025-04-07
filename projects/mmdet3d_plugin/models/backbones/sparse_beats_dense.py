@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as nnf
 from typing import Union
 import numpy as np
+import copy
 
 from mmdet3d.models.builder import BACKBONES
 
@@ -574,7 +575,28 @@ class SBD(nn.Module):
         return out
 
 
-    def forward_train(self, mini_batch_data:dict):
+    def forward_train(self, data:dict):
+
+        mini_batch_data = {}
+
+        mini_batch_data['img'] = data['img'].clone().squeeze()
+        mini_batch_data['depth_maps'] = data['depth_maps'].clone().squeeze()
+        mini_batch_data['radar_depth'] = data['radar_depth'].clone().squeeze()
+        mini_batch_data['seg_mask'] = data['seg_mask'].clone().squeeze()
+
+        B, N, C, H, W = mini_batch_data['img'].shape
+        mini_batch_data['img'] =  mini_batch_data['img'].view(-1, *mini_batch_data['img'].shape[2:])
+        mini_batch_data['depth_maps'] =  mini_batch_data['depth_maps'].view(-1, *mini_batch_data['depth_maps'].shape[2:]).unsqueeze(1)
+        mini_batch_data['radar_depth'] =  mini_batch_data['radar_depth'].reshape(-1, *mini_batch_data['radar_depth'].shape[2:]).unsqueeze(1)
+        mini_batch_data['seg_mask'] =  mini_batch_data['seg_mask'].reshape(-1, *mini_batch_data['seg_mask'].shape[2:]).unsqueeze(1)
+
+        mini_batch_data['radar'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['radar']])
+        # data['lidar'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['lidar']])
+        mini_batch_data['num_points'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['num_points']])
+
+        mini_batch_data['lidar_mask'] = (mini_batch_data['depth_maps'] > 0).to(torch.int)
+
+
         img              = self.padding(self.make_torch_tensor(mini_batch_data["img"], self.device, self.dtype))
         label            = self.padding(self.make_torch_tensor(mini_batch_data["depth_maps"], self.device, self.dtype))
         label_mask       = self.padding(self.make_torch_tensor(mini_batch_data['lidar_mask'], self.device, self.dtype))
@@ -584,6 +606,40 @@ class SBD(nn.Module):
         valid_radar_pts_cnts      = self.make_torch_tensor(mini_batch_data['num_points'], self.device, torch.long)
 
         pred_pyramid, valid_pyramid = self.forward_net(img, radar, radar_pts, valid_radar_pts_cnts)
+
+        # return pred_pyramid[-1][:,:, :H,:W], valid_pyramid[-1][:,:, :H,:W]
+        return pred_pyramid, valid_pyramid
+
+
+    def loss(self, outs, data):
+        mini_batch_data = {}
+
+        mini_batch_data['img'] = data['img'].clone().squeeze()
+        mini_batch_data['depth_maps'] = data['depth_maps'].clone().squeeze()
+        mini_batch_data['radar_depth'] = data['radar_depth'].clone().squeeze()
+        mini_batch_data['seg_mask'] = data['seg_mask'].clone().squeeze()
+
+        B, N, C, H, W = mini_batch_data['img'].shape
+        mini_batch_data['img'] =  mini_batch_data['img'].view(-1, *mini_batch_data['img'].shape[2:])
+        mini_batch_data['depth_maps'] =  mini_batch_data['depth_maps'].view(-1, *mini_batch_data['depth_maps'].shape[2:]).unsqueeze(1)
+        mini_batch_data['radar_depth'] =  mini_batch_data['radar_depth'].reshape(-1, *mini_batch_data['radar_depth'].shape[2:]).unsqueeze(1)
+        mini_batch_data['seg_mask'] =  mini_batch_data['seg_mask'].reshape(-1, *mini_batch_data['seg_mask'].shape[2:]).unsqueeze(1)
+
+        mini_batch_data['radar'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['radar']])
+        # data['lidar'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['lidar']])
+        mini_batch_data['num_points'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['num_points']])
+
+        mini_batch_data['lidar_mask'] = binary_tensor = (mini_batch_data['depth_maps'] > 0).to(torch.int)
+
+        img              = self.padding(self.make_torch_tensor(mini_batch_data["img"], self.device, self.dtype))
+        label            = self.padding(self.make_torch_tensor(mini_batch_data["depth_maps"], self.device, self.dtype))
+        label_mask       = self.padding(self.make_torch_tensor(mini_batch_data['lidar_mask'], self.device, self.dtype))
+        radar            = self.padding(self.make_torch_tensor(mini_batch_data['radar_depth'], self.device, self.dtype))
+        valid_label      = self.padding(self.make_torch_tensor(mini_batch_data['seg_mask'], self.device, self.dtype))
+        radar_pts      = self.make_torch_tensor(mini_batch_data['radar'], self.device, self.dtype)
+        valid_radar_pts_cnts      = self.make_torch_tensor(mini_batch_data['num_points'], self.device, torch.long)
+
+        pred_pyramid, valid_pyramid = outs
 
         losses, monitors = [], {}
         for i in range(len(pred_pyramid)):
