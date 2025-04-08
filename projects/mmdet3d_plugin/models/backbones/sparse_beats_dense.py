@@ -458,7 +458,7 @@ class SBD(nn.Module):
         self.G2  = UNet(12)       # 1/2      
         self.G3  = UNet(12)       # 1      
         
-        self.calibrated_params_encoder = FullyConnectedEncoder(input_channels=3,)
+        self.calibrated_params_encoder = FullyConnectedEncoder(input_channels=6,)
 
     # def forward(self, return_loss, mini_batch_data):
     #     if return_loss:
@@ -667,7 +667,8 @@ class SBD(nn.Module):
             losses.append(train_loss / scale)  # Add weight here
 
         loss = sum(losses)
-        return losses, monitors
+        # return losses, monitors
+        return loss
 
 
     def forward_eval(        

@@ -684,7 +684,7 @@ class MatrixVT(nn.Module):
             img_width,
         ) = img_feats.shape
         source_features = img_feats[:, 0, ...]
-        external_depth = external_depth.squeeze()
+        external_depth = external_depth.squeeze() # delete sweeps and channels dims
         external_depth = self.get_downsampled_gt_depth(external_depth)
         # print('IMG FEATURES SHAPE', img_feats.shape, 'SOURCE FEATURES SHAPE', source_features.shape)
         depth_feature = self.depth_net(
@@ -807,7 +807,7 @@ class MatrixVT(nn.Module):
         if isinstance(gt_depths, list):
             gt_depths = torch.stack(gt_depths, dim=0)
 
-        B, S, N, H, W = gt_depths.shape
+        B, N, H, W = gt_depths.shape
         gt_depths = gt_depths.contiguous().view(
             B * N,
             H // self.downsample_factor,
@@ -825,15 +825,15 @@ class MatrixVT(nn.Module):
                                     gt_depths)
         gt_depths = torch.min(gt_depths_tmp, dim=-1).values
 
-        gt_depths = (gt_depths - (self.dbound[0] - self.dbound[2])) / self.dbound[2]
+        gt_depths = (gt_depths - (self.d_bound[0] - self.d_bound[2])) / self.d_bound[2]
         gt_depths = torch.where(
             (gt_depths < self.depth_channels + 1) & (gt_depths >= 0.0),
             gt_depths, torch.zeros_like(gt_depths))
 
-        # Теперь one_hot возвращает [B*N, H, W, d] вместо (B*N*h*w, d)
+        # Теперь one_hot возвращает [B*N, h, w, d] вместо (B*N*h*w, d)
         gt_depths = F.one_hot(gt_depths.long(), num_classes=self.depth_channels + 1)[..., 1:]
 
-        # Изменяем на [B*N, d, H, W]
+        # Изменяем на [B*N, d, h, w]
         gt_depths = gt_depths.permute(0, 3, 1, 2).float()
 
         return gt_depths

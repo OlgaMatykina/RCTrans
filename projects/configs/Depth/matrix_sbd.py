@@ -29,7 +29,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 4
+batch_size = 2
 num_epochs = 90
 num_iters_per_epoch = 323 // (num_gpus * batch_size)
 
@@ -233,7 +233,7 @@ lr_config = dict(
 # evaluation = dict(interval=1, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch*num_epochs+1, pipeline=test_pipeline)
-evaluation = dict(interval=1, metric='epe:0-80', save_best='epe:0-80', rule='less')
+evaluation = dict(interval=num_iters_per_epoch*num_epochs+1, metric='epe:0-80', save_best='epe:0-80', rule='less')
 
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
@@ -242,7 +242,7 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # runner = dict(
 #     type='EpochBasedRunner', max_epochs=num_epochs)
 
-checkpoint_config = dict(interval=1, max_keep_ckpts=3)
+checkpoint_config = dict(interval=1000, max_keep_ckpts=3)
 
 # checkpoint_config = dict(
 #     max_keep_ckpts=3,
@@ -276,3 +276,4 @@ log_config = dict(
 )
 
 workflow = [('train', 1), ('val', 1)]
+# workflow = [('train', 1)]

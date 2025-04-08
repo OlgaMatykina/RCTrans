@@ -308,9 +308,9 @@ class MatrixVT_BIG(MVXTwoStageDetector):
         outs = self.radar_depth_model.forward_train(data)
 
         external_depth, _ =  outs
-        B, N, S, C, H, W = data['img_feats']
+        B, N, C, H, W = data['img'].shape
         external_depth = external_depth[-1][:,:, :H,:W]
-        external_depth = rearrange(external_depth, '(b n) c h w -> b n 1 c h w', b=B)
+        external_depth = rearrange(external_depth, '(b n) c h w -> b 1 n c h w', b=B)
 
         if not requires_grad:
             self.eval()
@@ -321,11 +321,11 @@ class MatrixVT_BIG(MVXTwoStageDetector):
 
         else:
             bev_features, depth = self.img_feats_to_bev(data['img_feats'], data['ida_mat'], data['intrinsics'], data['sensor2ego'], external_depth)
-            outs = depth
+            # outs = depth
 
         if return_losses:
             loss_inputs = [gt_depth_down, outs]
-            depth_loss = self.depth_model.loss(*loss_inputs)
+            depth_loss = self.radar_depth_model.loss(outs, data)
             losses = {'depth_loss': depth_loss}
             return losses
         else:
@@ -496,7 +496,7 @@ class MatrixVT_BIG(MVXTwoStageDetector):
         if isinstance(gt_depths, list):
             gt_depths = torch.stack(gt_depths, dim=0)
 
-        B, S, N, H, W = gt_depths.shape
+        B, N, H, W = gt_depths.shape
         gt_depths = gt_depths.contiguous().view(
             B * N,
             H // self.downsample_factor,

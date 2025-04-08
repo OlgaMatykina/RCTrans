@@ -86,6 +86,7 @@ bash tools/dist_train.sh projects/configs/Depth/matrixvt.py 1 --work-dir work_di
 
 bash tools/dist_train.sh projects/configs/Depth/sparse_beats_dense.py 1 --work-dir work_dirs/sbd/
 
+bash tools/dist_train.sh projects/configs/Depth/matrix_sbd.py 1 --work-dir work_dirs/matrix_sbd/
 
 ```
 Evaluation
