@@ -684,7 +684,7 @@ class MatrixVT(nn.Module):
             img_width,
         ) = img_feats.shape
         source_features = img_feats[:, 0, ...]
-        external_depth = external_depth.squeeze() # delete sweeps and channels dims
+        external_depth = external_depth.squeeze(1).squeeze(2) # delete sweeps and channels dims
         external_depth = self.get_downsampled_gt_depth(external_depth)
         # print('IMG FEATURES SHAPE', img_feats.shape, 'SOURCE FEATURES SHAPE', source_features.shape)
         depth_feature = self.depth_net(

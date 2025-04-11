@@ -579,10 +579,10 @@ class SBD(nn.Module):
 
         mini_batch_data = {}
 
-        mini_batch_data['img'] = data['img'].clone().squeeze()
-        mini_batch_data['depth_maps'] = data['depth_maps'].clone().squeeze()
-        mini_batch_data['radar_depth'] = data['radar_depth'].clone().squeeze()
-        mini_batch_data['seg_mask'] = data['seg_mask'].clone().squeeze()
+        mini_batch_data['img'] = data['img'].squeeze(1)
+        mini_batch_data['depth_maps'] = data['depth_maps'].squeeze(1)
+        mini_batch_data['radar_depth'] = data['radar_depth'].squeeze(1)
+        mini_batch_data['seg_mask'] = data['seg_mask'].squeeze(1)
 
         B, N, C, H, W = mini_batch_data['img'].shape
         mini_batch_data['img'] =  mini_batch_data['img'].view(-1, *mini_batch_data['img'].shape[2:])
@@ -614,16 +614,16 @@ class SBD(nn.Module):
     def loss(self, outs, data):
         mini_batch_data = {}
 
-        mini_batch_data['img'] = data['img'].clone().squeeze()
-        mini_batch_data['depth_maps'] = data['depth_maps'].clone().squeeze()
-        mini_batch_data['radar_depth'] = data['radar_depth'].clone().squeeze()
-        mini_batch_data['seg_mask'] = data['seg_mask'].clone().squeeze()
+        mini_batch_data['img'] = data['img'].squeeze(1)
+        mini_batch_data['depth_maps'] = data['depth_maps'].squeeze(1)
+        mini_batch_data['radar_depth'] = data['radar_depth'].squeeze(1)
+        mini_batch_data['seg_mask'] = data['seg_mask'].squeeze(1)
 
         B, N, C, H, W = mini_batch_data['img'].shape
         mini_batch_data['img'] =  mini_batch_data['img'].view(-1, *mini_batch_data['img'].shape[2:])
-        mini_batch_data['depth_maps'] =  mini_batch_data['depth_maps'].view(-1, *mini_batch_data['depth_maps'].shape[2:]).unsqueeze(1)
-        mini_batch_data['radar_depth'] =  mini_batch_data['radar_depth'].reshape(-1, *mini_batch_data['radar_depth'].shape[2:]).unsqueeze(1)
-        mini_batch_data['seg_mask'] =  mini_batch_data['seg_mask'].reshape(-1, *mini_batch_data['seg_mask'].shape[2:]).unsqueeze(1)
+        mini_batch_data['depth_maps'] =  mini_batch_data['depth_maps'].view(-1, *mini_batch_data['depth_maps'].shape[2:]).unsqueeze(1) # add channel's dim
+        mini_batch_data['radar_depth'] =  mini_batch_data['radar_depth'].reshape(-1, *mini_batch_data['radar_depth'].shape[2:]).unsqueeze(1) # add channel's dim
+        mini_batch_data['seg_mask'] =  mini_batch_data['seg_mask'].reshape(-1, *mini_batch_data['seg_mask'].shape[2:]).unsqueeze(1) # add channel's dim
 
         mini_batch_data['radar'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['radar']])
         # data['lidar'] = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in data['lidar']])
@@ -671,50 +671,58 @@ class SBD(nn.Module):
         return loss
 
 
-    def forward_eval(        
-        self, 
-        mini_batch_data: dict
-        ):
+    # def forward_eval(        
+    #     self, 
+    #     mini_batch_data: dict
+    #     ):
         
-        B,C, H, W = mini_batch_data["img"].shape
-        img              = self.padding(self.make_torch_tensor(mini_batch_data["img"],        self.device, self.dtype))
-        label            = self.padding(self.make_torch_tensor(mini_batch_data["depth_maps"],      self.device, self.dtype))
-        label_mask       = self.padding(self.make_torch_tensor(mini_batch_data['lidar_mask'], self.device, self.dtype))
-        radar            = self.padding(self.make_torch_tensor(mini_batch_data['radar_depth'],      self.device, self.dtype))
-        valid_label      = self.padding(self.make_torch_tensor(mini_batch_data['seg_mask'],      self.device, self.dtype))
-        radar_pts      = self.make_torch_tensor(mini_batch_data['radar'], self.device, self.dtype)
-        valid_radar_pts_cnts      = self.make_torch_tensor(mini_batch_data['num_points'], self.device, torch.long)
+    #     B,C, H, W = mini_batch_data["img"].shape
+    #     img              = self.padding(self.make_torch_tensor(mini_batch_data["img"],        self.device, self.dtype))
+    #     label            = self.padding(self.make_torch_tensor(mini_batch_data["depth_maps"],      self.device, self.dtype))
+    #     label_mask       = self.padding(self.make_torch_tensor(mini_batch_data['lidar_mask'], self.device, self.dtype))
+    #     radar            = self.padding(self.make_torch_tensor(mini_batch_data['radar_depth'],      self.device, self.dtype))
+    #     valid_label      = self.padding(self.make_torch_tensor(mini_batch_data['seg_mask'],      self.device, self.dtype))
+    #     radar_pts      = self.make_torch_tensor(mini_batch_data['radar'], self.device, self.dtype)
+    #     valid_radar_pts_cnts      = self.make_torch_tensor(mini_batch_data['num_points'], self.device, torch.long)
 
-        idx = torch.randint(low=0, high=img.shape[0], size=(1, ))[0]
-        img              = img[idx, None, ...]
-        label            = label[idx, None, ...]
-        label_mask       = label_mask[idx, None, ...]
-        radar            = radar[idx, None, ...]
-        valid_label      = valid_label[idx, None, ...]
-        radar_pts = radar_pts[idx, None, ...]
-        valid_radar_pts_cnts = valid_radar_pts_cnts[idx, None, ...]
+    #     idx = torch.randint(low=0, high=img.shape[0], size=(1, ))[0]
+    #     img              = img[idx, None, ...]
+    #     label            = label[idx, None, ...]
+    #     label_mask       = label_mask[idx, None, ...]
+    #     radar            = radar[idx, None, ...]
+    #     valid_label      = valid_label[idx, None, ...]
+    #     radar_pts = radar_pts[idx, None, ...]
+    #     valid_radar_pts_cnts = valid_radar_pts_cnts[idx, None, ...]
 
-        with torch.no_grad():
-            pred_pyramid, valid_pyramid = self.forward_net(img, radar, radar_pts, valid_radar_pts_cnts)
+    #     with torch.no_grad():
+    #         pred_pyramid, valid_pyramid = self.forward_net(img, radar, radar_pts, valid_radar_pts_cnts)
         
-        return {
-            "pred":             pred_pyramid[-1][:,:, :H,:W],
-            'pred_mask':        valid_pyramid[1][:,:, :H//2,:W//2],
-            "radar":            radar[:,:, :H,:W],
-            "img":              img[:,:, :H,:W],
-            "label":            label[:,:, :H,:W],
-            "label_mask":       label_mask[:,:, :H,:W],
-            "valid_label":      valid_label[:,:, :H,:W],
-        }
+    #     return {
+    #         "pred":             pred_pyramid[-1][:,:, :H,:W],
+    #         'pred_mask':        valid_pyramid[1][:,:, :H//2,:W//2],
+    #         "radar":            radar[:,:, :H,:W],
+    #         "img":              img[:,:, :H,:W],
+    #         "label":            label[:,:, :H,:W],
+    #         "label_mask":       label_mask[:,:, :H,:W],
+    #         "valid_label":      valid_label[:,:, :H,:W],
+    #     }
 
     def forward_test(        
         self, 
-        img,
-        radar,
-        radar_pts,
-        valid_radar_pts_cnts
+        img_orig,
+        radar_orig,
+        radar_pts_orig,
+        valid_radar_pts_cnts_orig
         ):
-        B, C, H, W = img.shape
+
+        B, N, C, H, W = img_orig.shape
+        img =  img_orig.view(-1, *img_orig.shape[2:])
+        radar =  radar_orig.reshape(-1, *radar_orig.shape[2:]).unsqueeze(1)  # add channel's dim
+        radar_pts = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in radar_pts_orig])
+        valid_radar_pts_cnts = torch.cat([cloud.unsqueeze(0).repeat(N, 1, 1) for cloud in valid_radar_pts_cnts_orig])
+
+
+
         img                  = self.padding(self.make_torch_tensor(img, self.device, self.dtype))
         radar                = self.padding(self.make_torch_tensor(radar, self.device, self.dtype))
         radar_pts            = self.make_torch_tensor(radar_pts, self.device, self.dtype)
@@ -722,7 +730,7 @@ class SBD(nn.Module):
 
         pred_pyramid, valid_pyramid = self.forward_net(img, radar, radar_pts, valid_radar_pts_cnts)
         
-        return pred_pyramid[-1][:,:, :H,:W].detach().cpu().numpy(), valid_pyramid[-1][:,:, :H,:W].detach().cpu().numpy()
+        return pred_pyramid[-1][:,:, :H,:W].detach(), valid_pyramid[-1][:,:, :H,:W].detach()
     
 
 def get_loss_l1_smooth(pred, label, mask):

@@ -348,6 +348,8 @@ class RCTransBEVHead(AnchorFreeHead):
 
     def pre_update_memory(self, data):
         x = data['prev_exists']
+        if isinstance(x, list):
+            x = torch.stack(x, dim=0)
         B = x.size(0)
         # refresh the memory when the scene changes
         if self.memory_embedding is None:

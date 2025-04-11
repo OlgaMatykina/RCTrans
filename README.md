@@ -88,6 +88,9 @@ bash tools/dist_train.sh projects/configs/Depth/sparse_beats_dense.py 1 --work-d
 
 bash tools/dist_train.sh projects/configs/Depth/matrix_sbd.py 1 --work-dir work_dirs/matrix_sbd/
 
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/rcdetr_sbd_matrixvt/
+
+
 ```
 Evaluation
 ```
@@ -106,6 +109,9 @@ bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_matrixvt_90e_256×704_re
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py work_dirs/rcdetr/iter_39555.pth 1 --eval bbox
 
 bash mmdetection3d/tools/dist_test.sh projects/configs/MyFirstModel/pointpillar.py work_dirs/pointpillar/epoch_1.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py work_dirs/rcdetr_sbd_matrixvt/latest.pth 1 --eval bbox
+
 ```
 Tracking
 ```
