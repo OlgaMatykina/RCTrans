@@ -309,15 +309,16 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
+# evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 # evaluation = dict(interval=101, pipeline=test_pipeline)
+evaluation = dict(interval=1, pipeline=test_pipeline)
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
 checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
-runner = dict(
-    type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
+# runner = dict(type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
+runner = dict(type='IterBasedRunner', max_iters=1)
 load_from=None
 # resume_from='ckpts/res18.pth'
 resume_from=None
