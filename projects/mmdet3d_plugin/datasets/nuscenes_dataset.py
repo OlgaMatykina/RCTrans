@@ -19,6 +19,7 @@ from nuscenes.eval.common.utils import Quaternion
 from mmcv.parallel import DataContainer as DC
 import random
 import math
+import time
 @DATASETS.register_module()
 class CustomNuScenesDataset(NuScenesDataset):
     r"""NuScenes Dataset.
@@ -289,6 +290,56 @@ class CustomNuScenesDataset(NuScenesDataset):
                 idx = self._rand_another(idx)
                 continue
             return data
+
+    def evaluate(self,
+                 results,
+                 metric='bbox',
+                 logger=None,
+                 jsonfile_prefix=None,
+                 result_names=['pts_bbox'],
+                 show=False,
+                 out_dir=None,
+                 pipeline=None):
+        """Evaluation in nuScenes protocol.
+
+        Args:
+            results (list[dict]): Testing results of the dataset.
+            metric (str | list[str], optional): Metrics to be evaluated.
+                Default: 'bbox'.
+            logger (logging.Logger | str, optional): Logger used for printing
+                related information during evaluation. Default: None.
+            jsonfile_prefix (str, optional): The prefix of json files including
+                the file path and the prefix of filename, e.g., "a/b/prefix".
+                If not specified, a temp file will be created. Default: None.
+            show (bool, optional): Whether to visualize.
+                Default: False.
+            out_dir (str, optional): Path to save the visualization results.
+                Default: None.
+            pipeline (list[dict], optional): raw data loading for showing.
+                Default: None.
+
+        Returns:
+            dict[str, float]: Results of each evaluation metric.
+        """
+        result_files, tmp_dir = self.format_results(results, jsonfile_prefix)
+
+        if isinstance(result_files, dict):
+            results_dict = dict()
+            for name in result_names:
+                print('Evaluating bboxes of {}'.format(name))
+                ret_dict = self._evaluate_single(result_files[name])
+            results_dict.update(ret_dict)
+        elif isinstance(result_files, str):
+            results_dict = self._evaluate_single(result_files)
+
+        if tmp_dir is not None:
+            tmp_dir.cleanup()
+
+        results_dict['data_time'] = time.time()
+
+        if show or out_dir:
+            self.show(results, out_dir, show=show, pipeline=pipeline)
+        return results_dict
 
 def invert_matrix_egopose_numpy(egopose):
     """ Compute the inverse transformation of a 4x4 egopose numpy matrix."""

@@ -142,8 +142,15 @@ def custom_train_detector(model,
     else:
         optimizer_config = cfg.optimizer_config
 
+
+    # if distributed and 'type' not in cfg.optimizer_config:
+    #     optimizer_config = OptimizerHook(**cfg.optimizer_config)
+    # else:
+    #     optimizer_config = cfg.optimizer_config
+
     # register hooks
-    runner.register_training_hooks(cfg.lr_config, optimizer_config,
+    runner.register_training_hooks(cfg.lr_config, 
+                                   cfg.optimizer_config,
                                    cfg.checkpoint_config, cfg.log_config,
                                    cfg.get('momentum_config', None))
     
