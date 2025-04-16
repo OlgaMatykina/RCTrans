@@ -379,7 +379,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW', 
-    lr=8e-5, # bs 32 gpu 1 || bs 4 gpu 1: 1e-5 # bs 8: 2e-4 || bs 16: 4e-4
+    lr=4e-4, # bs 32 gpu 1 || bs 4 gpu 1: 1e-5 # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -400,13 +400,16 @@ lr_config = dict(
 
 # evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
-evaluation = dict(interval=1, pipeline=test_pipeline)
+evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater', by_epoch=True)
 
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
-checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
+# checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
+checkpoint_config = dict(interval=1, max_keep_ckpts=3)
+
 # runner = dict(type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
+# runner = dict(type='IterBasedRunner', max_iters=1)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
 load_from=None
 # resume_from='work_dirs/rctrans_gt_depth/iter_40004.pth'
@@ -426,7 +429,7 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='fix metrics logging lab_comp sbd RCTrans',     # Имя эксперимента
+                name='lab_comp sbd RCTrans from init',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',

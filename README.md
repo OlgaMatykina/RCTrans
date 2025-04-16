@@ -90,6 +90,11 @@ bash tools/dist_train.sh projects/configs/Depth/matrix_sbd.py 1 --work-dir work_
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/rcdetr_sbd_matrixvt/
 
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/rcdetr_sbd_matrixvt_from_res18/
+
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/rcdetr_sbd_matrixvt_from_init/
+
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/tmp/
 
 ```
 Evaluation
@@ -112,6 +117,7 @@ bash mmdetection3d/tools/dist_test.sh projects/configs/MyFirstModel/pointpillar.
 
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py work_dirs/rcdetr_sbd_matrixvt/latest.pth 1 --eval bbox
 
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py ckpts/res18.pth 1 --eval bbox
 ```
 Tracking
 ```
