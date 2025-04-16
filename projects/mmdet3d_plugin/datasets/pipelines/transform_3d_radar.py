@@ -170,7 +170,8 @@ class LoadRadarPointsMultiSweeps(object):
         points = RadarPoints(
             points, points_dim=points.shape[-1], attribute_dims=None
         )
-        results['radar'] = points
+        # results['radar'] = points
+        results['radar'] = results['points']
         return results
 
     def __repr__(self):

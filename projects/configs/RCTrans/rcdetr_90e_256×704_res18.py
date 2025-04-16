@@ -26,8 +26,8 @@ class_names = [
     'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
 ]
 
-num_gpus = 1
-batch_size = 4
+num_gpus = 2
+batch_size = 3
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -207,6 +207,16 @@ ida_aug_conf = {
 train_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
     dict(
+        type='LoadPointsFromFile',
+        coord_type='LIDAR',
+        load_dim=5,
+        use_dim=5,
+        file_client_args=file_client_args),
+    dict(
+        type='LoadPointsFromMultiSweeps',
+        sweeps_num=10,
+        file_client_args=file_client_args),
+    dict(
         type='LoadRadarPointsMultiSweeps',
         load_dim=18,
         sweeps_num=6,
@@ -290,14 +300,14 @@ data = dict(
 
 optimizer = dict(
     type='AdamW', 
-    lr=1e-5, #bs 4 gpu 1 # bs 8: 2e-4 || bs 16: 4e-4
+    lr=1e-4, #bs 4 gpu 1 # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
         }),
     weight_decay=0.01)
 
-optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=8, grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 lr_config = dict(
     policy='CosineAnnealing',
@@ -312,14 +322,21 @@ evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipelin
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
-checkpoint_config = dict(interval=num_iters_per_epoch//10*5+1, max_keep_ckpts=3)
+checkpoint_config = dict(interval=200, max_keep_ckpts=3)
 
 runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
 load_from=None
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
-custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
+custom_hooks = [
+    dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
+    dict(
+        type='CheckInvalidLossHook',
+        interval=1,  # проверять на каждом шаге
+        priority='VERY_HIGH'  # чтобы проверка шла до шага оптимизации
+    )
+]
 
 log_config = dict(
     interval=5,
@@ -329,7 +346,7 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='RCTrans',     # Имя эксперимента
+                name='cds2 lidar RCTrans',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',
