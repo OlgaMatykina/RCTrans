@@ -411,6 +411,53 @@ class RCDETR(MVXTwoStageDetector):
         data['img_feats'] = rec_img_feats
         data['radar_feats'] = rec_radar_feats
 
+        # print('img_feats', rec_img_feats.shape)
+
+        # import matplotlib.pyplot as plt
+        # import numpy as np
+
+        # features = rec_img_feats.squeeze()[0].cpu().numpy()  # Замените на ваши данные
+
+        # # Размер итогового изображения
+        # grid_size = 16
+        # fig, axs = plt.subplots(grid_size, grid_size, figsize=(16, 16))
+
+        # # Итерируем по всем feature maps
+        # for i in range(grid_size):
+        #     for j in range(grid_size):
+        #         index = i * grid_size + j
+        #         if index < features.shape[0]:
+        #             ax = axs[i, j]
+        #             ax.imshow(features[index], cmap='hot', interpolation='nearest')
+        #             ax.axis('off')  # Отключаем оси
+
+        # # Настроим отступы и сохраняем изображение
+        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        # plt.savefig('img_rv_feature_maps_grid.png', dpi=300)
+        # plt.show()
+
+        # print('radar_feats', rec_radar_feats.shape)
+
+        # features = rec_radar_feats.squeeze().cpu().numpy()  # Замените на ваши данные
+
+        # # Размер итогового изображения
+        # grid_size = 8
+        # fig, axs = plt.subplots(grid_size, grid_size, figsize=(8, 8))
+
+        # # Итерируем по всем feature maps
+        # for i in range(grid_size):
+        #     for j in range(grid_size):
+        #         index = i * grid_size + j
+        #         if index < features.shape[0]:
+        #             ax = axs[i, j]
+        #             ax.imshow(features[index], cmap='hot', interpolation='nearest')
+        #             ax.axis('off')  # Отключаем оси
+
+        # # Настроим отступы и сохраняем изображение
+        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        # plt.savefig('radar_bev_feature_maps_grid.png', dpi=300)
+        # plt.show()
+
         bbox_list = [dict() for i in range(len(img_metas))]
         bbox_pts = self.simple_test_pts(
             img_metas, **data)

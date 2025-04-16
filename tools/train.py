@@ -27,6 +27,9 @@ from mmdet.apis import set_random_seed
 from mmseg import __version__ as mmseg_version
 from mmcv.utils import TORCH_VERSION, digit_version
 
+import sys
+sys.path.append('/home/docker_rctrans/RCTrans')
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
     parser.add_argument('config', help='train config file path')

@@ -11,3 +11,4 @@ from .pointpillars import PointPillarsScatter_futr3d, Radar_dense_encoder_tf
 from .radar_encoder import RadarFeatureNet
 from .vit import ViT
 from .dino import DINOFeaturesExtractor
+from .nets.dino_v2_with_adapter.dino_v2_adapter.dinov2_adapter import DinoAdapter

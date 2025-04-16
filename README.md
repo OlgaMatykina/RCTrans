@@ -95,6 +95,9 @@ bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_bevlo
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py work_dirs/rcdetr/iter_39555.pth 1 --eval bbox
 
 bash mmdetection3d/tools/dist_test.sh projects/configs/MyFirstModel/pointpillar.py work_dirs/pointpillar/epoch_1.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py work_dirs/dino/iter_62062.pth 1 --eval bbox
+
 ```
 Tracking
 ```
