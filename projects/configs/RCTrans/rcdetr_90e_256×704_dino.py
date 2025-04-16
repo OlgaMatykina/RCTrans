@@ -28,7 +28,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 2
+batch_size = 1
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -53,13 +53,19 @@ model = dict(
         # init_cfg=dict(
         #     type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
         #     prefix='backbone.'),       
-        type='DINOFeaturesExtractor',
-        model="dino_vits16",
-        load_size=256,
-        stride=16,
-        facet="token",
-        num_patches_h=16,
-        num_patches_w=44, 
+        type='DinoAdapter',
+        add_vit_feature=False,
+        pretrain_size=518,
+        pretrained_vit=True,
+        num_heads=6,
+        embed_dim=384,
+        freeze_dino=True,
+        # model="dino_vits16",
+        # load_size=256,
+        # stride=16,
+        # facet="token",
+        # num_patches_h=16,
+        # num_patches_w=44, 
         # depth=18,
         # num_stages=4,
         # out_indices=(2, 3),
@@ -205,7 +211,7 @@ file_client_args = dict(backend='disk')
 
 ida_aug_conf = {
         "resize_lim": (0.38, 0.55),
-        "final_dim": (256, 704),
+        "final_dim": (448, 896),
         "bot_pct_lim": (0.0, 0.0),
         "rot_lim": (0.0, 0.0),
         "H": 900,
@@ -235,7 +241,7 @@ train_pipeline = [
             training=True,
             ),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-    dict(type='PadMultiViewImage', size_divisor=32),
+    dict(type='PadMultiViewImage', size_divisor=14),
     dict(type='PETRFormatBundle3D', class_names=class_names, collect_keys=collect_keys + ['prev_exists']),
     dict(type='MyTransform',),
     dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists'] + collect_keys,
@@ -253,7 +259,7 @@ test_pipeline = [
     dict(type='RadarRangeFilter', radar_range=bev_range),
     dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-    dict(type='PadMultiViewImage', size_divisor=32),
+    dict(type='PadMultiViewImage', size_divisor=14),
     dict(
         type='MultiScaleFlipAug3D',
         img_scale=(1333, 800),
@@ -277,7 +283,7 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
+        ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_train.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training
@@ -326,8 +332,8 @@ checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
 runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
 load_from=None
-resume_from='/home/docker_rctrans/RCTrans/work_dirs/dino/latest.pth'
-# resume_from=None
+# resume_from='/home/docker_rctrans/RCTrans/work_dirs/dino/latest.pth'
+resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [
     dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
@@ -339,20 +345,20 @@ custom_hooks = [
 ]
 
 log_config = dict(
-    interval=5,
+    interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        dict(
-            type='WandbLoggerHook',
-            init_kwargs=dict(
-                project='radar-camera',   # Название проекта в WandB
-                name='lab_comp dino RCTrans',     # Имя эксперимента
-                config=dict(                # Дополнительные настройки эксперимента
-                    batch_size=batch_size,
-                    model='rcdetr',
-                )
-            )
-        ),
+        # dict(
+        #     type='WandbLoggerHook',
+        #     init_kwargs=dict(
+        #         project='radar-camera',   # Название проекта в WandB
+        #         name='lab_comp dino RCTrans',     # Имя эксперимента
+        #         config=dict(                # Дополнительные настройки эксперимента
+        #             batch_size=batch_size,
+        #             model='rcdetr',
+        #         )
+        #     )
+        # ),
     ],
 )
 
