@@ -68,3 +68,5 @@ RUN pip install ipython && \
 
 RUN pip install mmcv-full==1.7.0 && \
     pip install mmengine
+
+RUN pip install loguru

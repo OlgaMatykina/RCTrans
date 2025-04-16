@@ -249,7 +249,8 @@ class CustomNuScenesDataset(NuScenesDataset):
         if self.test_mode:
             return self.prepare_test_data(idx)
         while True:
-
+            # if isinstance(idx, list):
+            #     return [self.prepare_train_data(i) for i in idx]
             data = self.prepare_train_data(idx)
             if data is None:
                 idx = self._rand_another(idx)

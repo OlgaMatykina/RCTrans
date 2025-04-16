@@ -28,7 +28,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 2
+batch_size = 1
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -290,7 +290,7 @@ data = dict(
         use_valid_flag=True,
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
-    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, seq_mode=True,),
     test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
@@ -298,7 +298,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW', 
-    lr=2e-4, # bs 8: 2e-4 || bs 16: 4e-4
+    lr=4e-4, # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -316,17 +316,18 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
+evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater')
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 # evaluation = dict(interval=101, pipeline=test_pipeline)
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
-checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
-runner = dict(
-    type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
-load_from=None
-resume_from='/home/docker_rctrans/RCTrans/work_dirs/dino/latest.pth'
+checkpoint_config = dict(interval=1, max_keep_ckpts=3)
+
+runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
+
+load_from='ckpts/res18.pth'
+resume_from=None
 # resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [
@@ -339,14 +340,14 @@ custom_hooks = [
 ]
 
 log_config = dict(
-    interval=5,
+    interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
         dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='lab_comp dino RCTrans',     # Имя эксперимента
+                name='ilya_comp dino RCTrans from res18.pth',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',
@@ -355,6 +356,10 @@ log_config = dict(
         ),
     ],
 )
+
+# workflow = [('train', 1), ('val', 1)]
+workflow = [('train', 1)]
+# workflow = [('val', 1)]
 
 '''
 mAP: 0.4741

@@ -80,6 +80,8 @@ bash mmdetection3d/tools/dist_train.sh projects/configs/MyFirstModel/pointpillar
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/dino/
 
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/dino_from_res18/
+
 ```
 Evaluation
 ```
@@ -94,6 +96,8 @@ bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py wo
 bash mmdetection3d/tools/dist_test.sh projects/configs/MyFirstModel/pointpillar.py work_dirs/pointpillar/epoch_1.pth 1 --eval bbox
 
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py work_dirs/dino/iter_62062.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py work_dirs/dino_from_res18/best_pts_bbox_NuScenes/NDS_epoch_78.pth 1 --eval bbox
 
 ```
 Tracking
