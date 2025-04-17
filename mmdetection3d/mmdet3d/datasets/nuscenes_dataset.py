@@ -13,6 +13,8 @@ from .builder import DATASETS
 from .custom_3d import Custom3DDataset
 from .pipelines import Compose
 
+import time
+
 
 @DATASETS.register_module()
 class NuScenesDataset(Custom3DDataset):
@@ -513,6 +515,8 @@ class NuScenesDataset(Custom3DDataset):
 
         if tmp_dir is not None:
             tmp_dir.cleanup()
+
+        results_dict['data_time'] = time.time()
 
         if show or out_dir:
             self.show(results, out_dir, show=show, pipeline=pipeline)

@@ -28,7 +28,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 4
+batch_size = 2
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -309,36 +309,44 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
+# evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 # evaluation = dict(interval=101, pipeline=test_pipeline)
+evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater')
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
-checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
-runner = dict(
-    type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
+# checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
+checkpoint_config = dict(interval=1, max_keep_ckpts=3)
+runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
 load_from=None
 # resume_from='ckpts/res18.pth'
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
-custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
+custom_hooks = [
+    dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
+    dict(
+        type='CheckInvalidLossHook',
+        interval=1,  # проверять на каждом шаге
+        priority='VERY_HIGH'  # чтобы проверка шла до шага оптимизации
+    )
+]
 
 log_config = dict(
-    interval=5,
+    interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(
-        #     type='WandbLoggerHook',
-        #     init_kwargs=dict(
-        #         project='radar-camera',   # Название проекта в WandB
-        #         name='RCTrans',     # Имя эксперимента
-        #         config=dict(                # Дополнительные настройки эксперимента
-        #             batch_size=batch_size,
-        #             model='rcdetr',
-        #         )
-        #     )
-        # ),
+        dict(
+            type='WandbLoggerHook',
+            init_kwargs=dict(
+                project='radar-camera',   # Название проекта в WandB
+                name='RCTrans on mini from zero',     # Имя эксперимента
+                config=dict(                # Дополнительные настройки эксперимента
+                    batch_size=batch_size,
+                    model='rcdetr',
+                )
+            )
+        ),
     ],
 )
 
