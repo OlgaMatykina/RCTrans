@@ -310,6 +310,7 @@ lr_config = dict(
     )
 
 # evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
+# evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 # evaluation = dict(interval=101, pipeline=test_pipeline)
 evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater')
