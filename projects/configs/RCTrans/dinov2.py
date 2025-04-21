@@ -42,17 +42,7 @@ input_modality = dict(
     use_radar=True,
     use_map=False,
     use_external=True)
-model = dict(
-    type='RCDETR',
-    num_frame_head_grads=num_frame_losses,
-    num_frame_backbone_grads=num_frame_losses,
-    num_frame_losses=num_frame_losses,
-    use_grid_mask=True,
-    # img encoder
-    img_backbone=dict(
-        # init_cfg=dict(
-        #     type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
-        #     prefix='backbone.'),       
+model = dict(   
         type='DinoAdapter',
         add_vit_feature=False,
         pretrain_size=518,
@@ -60,147 +50,7 @@ model = dict(
         num_heads=6,
         embed_dim=384,
         freeze_dino=True,
-        # model="dino_vits16",
-        # load_size=256,
-        # stride=16,
-        # facet="token",
-        # num_patches_h=16,
-        # num_patches_w=44, 
-        # depth=18,
-        # num_stages=4,
-        # out_indices=(2, 3),
-        # frozen_stages=-1,
-        # norm_cfg=dict(type='BN2d', requires_grad=False),
-        # norm_eval=True,
-        # with_cp=True,
-        # style='pytorch'
-        ),
-    img_neck=dict(
-        type='CPFPN',  ###remove unused parameters 
-        in_channels=[128],
-        out_channels=256,
-        num_outs=1),
-    img_roi_head=dict(
-        type='FocalHead',
-        num_classes=10,
-        in_channels=256,
-        loss_cls2d=dict(
-            type='QualityFocalLoss',
-            use_sigmoid=True,
-            beta=2.0,
-            loss_weight=2.0),
-        loss_centerness=dict(type='GaussianFocalLoss', reduction='mean', loss_weight=1.0),
-        loss_bbox2d=dict(type='L1Loss', loss_weight=5.0),
-        loss_iou2d=dict(type='GIoULoss', loss_weight=2.0),
-        loss_centers2d=dict(type='L1Loss', loss_weight=10.0),
-        train_cfg=dict(
-        assigner2d=dict(
-            type='HungarianAssigner2D',
-            cls_cost=dict(type='FocalLossCost', weight=2.),
-            reg_cost=dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
-            iou_cost=dict(type='IoUCost', iou_mode='giou', weight=2.0),
-            centers2d_cost=dict(type='BBox3DL1Cost', weight=10.0)))
-        ),
-    # radar encoder
-    radar_voxel_layer=dict(
-        num_point_features=6,
-        max_num_points=10, 
-        voxel_size=radar_voxel_size, 
-        max_voxels=(90000, 120000),
-        point_cloud_range=point_cloud_range),
-    radar_voxel_encoder=dict(
-        type='RadarFeatureNet',
-        in_channels=6,
-        feat_channels=[32, 64],
-        with_distance=False,
-        point_cloud_range=point_cloud_range,
-        voxel_size=radar_voxel_size,
-        norm_cfg=dict(
-            type='BN1d',
-            eps=1.0e-3,
-            momentum=0.01)
-    ),
-    radar_middle_encoder=dict(
-        type='PointPillarsScatter_futr3d',
-        in_channels=64,
-        output_shape=[128, 128],
-    ),
-    radar_dense_encoder=dict(
-        type='Radar_dense_encoder_tf',
-    ),
-    # detect head
-    pts_bbox_head=dict(
-        type='RCTransHead',
-        num_classes=10,
-        in_channels_img=256,
-        in_channels_radar=64,
-        num_query=900,
-        memory_len= mem_query*4 , # 用来调节Memory Queue的长度
-        topk_proposals=mem_query, # 每帧所要保存的query
-        num_propagated=mem_query,
-        with_ego_pos=True,
-        match_with_velo=False,
-        scalar=10, ##noise groups
-        noise_scale = 1.0, 
-        dn_weight= 1.0, ##dn loss weight
-        split = 0.75, ###positive rate
-        LID=True,
-        with_position=True,
-        position_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
-        code_weights = [2.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
-        transformer=dict(
-            type='RCTransTemporalTransformer',
-            decoder=dict(
-                type='RCTransTransformerDecoder',
-                return_intermediate=True,
-                num_layers=6,
-                transformerlayers=dict(
-                    type='PETRTemporalDecoderLayer',
-                    attn_cfgs=[
-                        dict(
-                            type='MultiheadAttention',
-                            embed_dims=256,
-                            num_heads=8,
-                            dropout=0.1),
-                        dict(
-                            type='PETRMultiheadFlashAttention',
-                            embed_dims=256,
-                            num_heads=8,
-                            dropout=0.1),
-                        ],
-                    feedforward_channels=2048,
-                    ffn_dropout=0.1,
-                    with_cp=True,  ###use checkpoint to save memory
-                    operation_order=('self_attn', 'norm', 'cross_attn', 'norm',
-                                     'ffn', 'norm')),
-            )),
-        bbox_coder=dict(
-            type='NMSFreeCoder',
-            post_center_range=[-61.2, -61.2, -10.0, 61.2, 61.2, 10.0],
-            pc_range=point_cloud_range,
-            max_num=300,
-            voxel_size=voxel_size,
-            num_classes=10), 
-        loss_cls=dict(
-            type='FocalLoss',
-            use_sigmoid=True,
-            gamma=2.0,
-            alpha=0.25,
-            loss_weight=2.0),
-        loss_bbox=dict(type='L1Loss', loss_weight=0.25),
-        loss_iou=dict(type='GIoULoss', loss_weight=0.0),),
-    # model training and testing settings
-    train_cfg=dict(pts=dict(
-        grid_size=[512, 512, 1],
-        voxel_size=voxel_size,
-        point_cloud_range=point_cloud_range,
-        out_size_factor=out_size_factor,
-        assigner=dict(
-            type='HungarianAssigner3D',
-            cls_cost=dict(type='FocalLossCost', weight=2.0),
-            reg_cost=dict(type='BBox3DL1Cost', weight=0.25),
-            iou_cost=dict(type='IoUCost', weight=0.0), # Fake cost. This is just to make it compatible with DETR head. 
-            pc_range=point_cloud_range),)))
+    )
 
 
 dataset_type = 'CustomNuScenesDataset'
@@ -242,10 +92,9 @@ train_pipeline = [
             ),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='PadMultiViewImage', size_divisor=14),
-    dict(type='LoadDinov2Features'),
     dict(type='PETRFormatBundle3D', class_names=class_names, collect_keys=collect_keys + ['prev_exists']),
     dict(type='MyTransform',),
-    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists', 'dinov2'] + collect_keys,
+    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists'] + collect_keys,
              meta_keys=('filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token', 'gt_bboxes_3d','gt_labels_3d','lidar2img','radar_aug_matrix', 'pcd_scale_factor'))
 ]
 test_pipeline = [
@@ -261,7 +110,6 @@ test_pipeline = [
     dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='PadMultiViewImage', size_divisor=14),
-    dict(type='LoadDinov2Features'),
     dict(
         type='MultiScaleFlipAug3D',
         img_scale=(1333, 800),
@@ -274,14 +122,14 @@ test_pipeline = [
                 class_names=class_names,
                 with_label=False),
             dict(type='MyTransform',),
-            dict(type='Collect3D', keys=['img','radar', 'dinov2'] + collect_keys,
+            dict(type='Collect3D', keys=['img','radar'] + collect_keys,
             meta_keys=('filename', 'ori_shape', 'img_shape','pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token','lidar2img'))
         ]), 
 ]
 
 data = dict(
     samples_per_gpu=batch_size,
-    workers_per_gpu=0,
+    workers_per_gpu=6,
     train=dict(
         type=dataset_type,
         data_root=data_root,
@@ -306,7 +154,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW', 
-    lr=4e-4, # bs 8: 2e-4 || bs 16: 4e-4
+    lr=2e-4, # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -324,15 +172,15 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater')
+evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 # evaluation = dict(interval=101, pipeline=test_pipeline)
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
-checkpoint_config = dict(interval=1, max_keep_ckpts=3)
-runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
-# load_from='ckpts/res18.pth'
+checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
+runner = dict(
+    type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
 load_from=None
 # resume_from='/home/docker_rctrans/RCTrans/work_dirs/dino/latest.pth'
 resume_from=None
@@ -350,17 +198,17 @@ log_config = dict(
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        dict(
-            type='WandbLoggerHook',
-            init_kwargs=dict(
-                project='radar-camera',   # Название проекта в WandB
-                name='lab_comp dino RCTrans from zero',     # Имя эксперимента
-                config=dict(                # Дополнительные настройки эксперимента
-                    batch_size=batch_size,
-                    model='rcdetr',
-                )
-            )
-        ),
+        # dict(
+        #     type='WandbLoggerHook',
+        #     init_kwargs=dict(
+        #         project='radar-camera',   # Название проекта в WandB
+        #         name='lab_comp dino RCTrans',     # Имя эксперимента
+        #         config=dict(                # Дополнительные настройки эксперимента
+        #             batch_size=batch_size,
+        #             model='rcdetr',
+        #         )
+        #     )
+        # ),
     ],
 )
 

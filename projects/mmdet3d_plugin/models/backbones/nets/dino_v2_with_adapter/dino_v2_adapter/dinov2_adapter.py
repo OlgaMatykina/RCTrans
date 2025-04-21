@@ -131,7 +131,7 @@ class DinoAdapter(DinoVisionTransformer):
         c4 = c4 + self.level_embed[2]
         return c2, c3, c4
 
-    def forward(self, x):
+    def forward(self, x, dinov2_feats):
         deform_inputs1, deform_inputs2 = deform_inputs(x)
 
         # SPM forward
@@ -153,12 +153,19 @@ class DinoAdapter(DinoVisionTransformer):
         cls = self.cls_token.expand(x.shape[0], -1, -1) + self.pos_embed[:, 0]
 
         # Interaction
-        outs = list()
-        for i, layer in enumerate(self.interactions):
-            indexes = self.interaction_indexes[i]
-            x, c, cls = layer(x, c, cls, self.blocks[indexes[0]:indexes[-1] + 1],
-                         deform_inputs1, deform_inputs2, H_adapt, W_adapt)
-            outs.append(x.transpose(1, 2).view(bs, dim, H_vit, W_vit).contiguous())
+        # outs = list()
+        # for i, layer in enumerate(self.interactions):
+        #     indexes = self.interaction_indexes[i]
+        #     x, c, cls = layer(x, c, cls, self.blocks[indexes[0]:indexes[-1] + 1],
+        #                  deform_inputs1, deform_inputs2, H_adapt, W_adapt)
+        #     outs.append(x.transpose(1, 2).view(bs, dim, H_vit, W_vit).contiguous())
+
+        outs, x, c, cls = dinov2_feats.values()
+
+        outs = [o.squeeze(0) for o in outs]
+        x = x.squeeze(0)
+        c = c.squeeze(0)
+        cls = cls.squeeze(0)
 
         # Split & Reshape
         c2 = c[:, 0:c2.size(1), :]
@@ -190,6 +197,38 @@ class DinoAdapter(DinoVisionTransformer):
         f3 = self.norm3(c3)
         f4 = self.norm4(c4)
         return [f1, f2, f3, f4], x_out
+    
+    def extract_intermediate_features(self, x):
+        deform_inputs1, deform_inputs2 = deform_inputs(x)
+
+        # SPM forward
+        c1, c2, c3, c4 = self.spm(x)
+        c2, c3, c4 = self._add_level_embed(c2, c3, c4)
+        c = torch.cat([c2, c3, c4], dim=1)
+
+        # Patch Embedding forward
+        _, _, h, w = x.shape
+        x = self.patch_embed(x)
+        W_vit = w // self.patch_size
+        H_vit = h // self.patch_size
+        W_adapt = w // 16
+        H_adapt = h // 16
+
+        bs, n, dim = x.shape
+        pos_embed = self._get_pos_embed(self.pos_embed[:, 1:], H_vit, W_vit)
+        x = x + pos_embed
+        cls = self.cls_token.expand(x.shape[0], -1, -1) + self.pos_embed[:, 0]
+
+        # Interaction
+        outs = list()
+        for i, layer in enumerate(self.interactions):
+            indexes = self.interaction_indexes[i]
+            x, c, cls = layer(x, c, cls, self.blocks[indexes[0]:indexes[-1] + 1],
+                         deform_inputs1, deform_inputs2, H_adapt, W_adapt)
+            outs.append(x.transpose(1, 2).view(bs, dim, H_vit, W_vit).contiguous())
+
+        return outs, x, c, cls
+
 
 
 # encoder = DinoAdapter(add_vit_feature=False, pretrain_size=518, pretrained_vit=True, num_heads=6,

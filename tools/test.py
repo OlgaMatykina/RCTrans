@@ -16,6 +16,10 @@ from mmcv.runner import (get_dist_info, init_dist, load_checkpoint,
 
 from mmdet3d.apis import single_gpu_test
 from mmdet3d.datasets import build_dataset
+
+import sys
+sys.path.append('/home/docker_rctrans/RCTrans')
+
 from projects.mmdet3d_plugin.datasets.builder import build_dataloader
 from mmdet3d.models import build_model
 from mmdet.apis import set_random_seed

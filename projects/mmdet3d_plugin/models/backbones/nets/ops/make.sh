@@ -7,4 +7,4 @@
 # Modified from https://github.com/chengdazhi/Deformable-Convolution-V2-PyTorch/tree/pytorch_1.0.0
 # ------------------------------------------------------------------------------------------------
 
-python3 setup.py build install --prefix=/home/matykina_ov/.local # --prefix=/home/docker_rctrans/.local
+python3 setup.py build install --prefix=/home/docker_rctrans/.local # --prefix=/home/matykina_ov/.local
