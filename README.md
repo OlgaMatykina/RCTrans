@@ -96,6 +96,8 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×7
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/tmp/
 
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/rcdetr_sbd_matrixvt_from_res18_freezed/
+
 ```
 Evaluation
 ```

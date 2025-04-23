@@ -9,3 +9,4 @@ from .models.detectors import *
 from .models.necks import *
 from .models.backbones import *
 from .models.losses import *
+from .models.hooks import *

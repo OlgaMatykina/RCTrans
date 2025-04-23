@@ -411,14 +411,15 @@ checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 # runner = dict(type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
 # runner = dict(type='IterBasedRunner', max_iters=1)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
-load_from=None
+load_from='ckpts/res18.pth'
 # resume_from='work_dirs/rctrans_gt_depth/iter_40004.pth'
 # resume_from='work_dirs/rcdetr_sbd_matrixvt/iter_20020.pth'
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [
     dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
-    dict(type='CheckInvalidLossHook', interval=1)
+    dict(type='CheckInvalidLossHook', interval=1),
+    dict(type='FreezeAllButNewDepthHook')
     ]
 
 log_config = dict(
@@ -429,7 +430,7 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='lab_comp sbd RCTrans from init',     # Имя эксперимента
+                name='lab_comp sbd RCTrans from res18.pth with freezed RCTrans',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',
