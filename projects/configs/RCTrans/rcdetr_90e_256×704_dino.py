@@ -211,7 +211,7 @@ file_client_args = dict(backend='disk')
 
 ida_aug_conf = {
         "resize_lim": (0.38, 0.55),
-        "final_dim": (448, 896),
+        "final_dim": (224, 448),
         "bot_pct_lim": (0.0, 0.0),
         "rot_lim": (0.0, 0.0),
         "H": 900,
@@ -332,8 +332,8 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
 checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
-# load_from='ckpts/res18.pth'
-load_from=None
+load_from='ckpts/res18.pth'
+# load_from=None
 # resume_from='/home/docker_rctrans/RCTrans/work_dirs/dino/latest.pth'
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
@@ -343,7 +343,8 @@ custom_hooks = [
         type='CheckInvalidLossHook',
         interval=1,  # проверять на каждом шаге
         priority='VERY_HIGH'  # чтобы проверка шла до шага оптимизации
-    )
+    ),
+    dict(type='FreezeAllButNewDepthHook', priority='NORMAL'),
 ]
 
 log_config = dict(
@@ -354,7 +355,7 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='lab_comp dino RCTrans from zero',     # Имя эксперимента
+                name='lab_comp dinov2 + adapter RCTrans from res18.pth with freezed RCTrans',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',

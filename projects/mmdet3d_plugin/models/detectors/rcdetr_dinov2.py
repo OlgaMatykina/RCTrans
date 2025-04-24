@@ -201,7 +201,7 @@ class RCDETR(MVXTwoStageDetector):
             img_feats = self.dino_ms_fuse(x_4=feats_4_, x_8=feats_8_, x_16=feats_16_, x_32=feats_32_)
 
             # print(img_feats.shape)
-            img_feats = F.interpolate(img_feats, size=(img.shape[2]//16, img.shape[3]//16), mode='bilinear', align_corners=False)
+            img_feats = F.interpolate(img_feats, size=(img.shape[2]//14, img.shape[3]//10), mode='bilinear', align_corners=False)
             # print(img_feats.shape)
 
             img_feats = [img_feats]

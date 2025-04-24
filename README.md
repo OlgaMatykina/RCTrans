@@ -80,6 +80,8 @@ bash mmdetection3d/tools/dist_train.sh projects/configs/MyFirstModel/pointpillar
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/dinov2/
 
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/dinov2_from_res18_freezed/
+
 ```
 Evaluation
 ```

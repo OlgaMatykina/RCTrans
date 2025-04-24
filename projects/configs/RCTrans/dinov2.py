@@ -61,7 +61,7 @@ file_client_args = dict(backend='disk')
 
 ida_aug_conf = {
         "resize_lim": (0.38, 0.55),
-        "final_dim": (448, 896),
+        "final_dim": (224, 448),
         "bot_pct_lim": (0.0, 0.0),
         "rot_lim": (0.0, 0.0),
         "H": 900,
