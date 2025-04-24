@@ -64,18 +64,20 @@ class CustomNuScenesDepthDataset(CustomNuScenesDataset):
         
         # Iterate through results list
         for result in tqdm(results):
-            preds = result['preds']
-            gt = result['gt']
+            # preds = result['preds']
+            # gt = result['gt']
 
-            # resize gt
-            gt = gt.unsqueeze(0)
-            gt = F.interpolate(gt, size=(16, 44), mode='bilinear', align_corners=False)
-            gt = gt.squeeze(0).squeeze(0)
+            # # resize gt
+            # gt = gt.unsqueeze(0)
+            # gt = F.interpolate(gt, size=(16, 44), mode='bilinear', align_corners=False)
+            # gt = gt.squeeze(0).squeeze(0)
 
-            # convert preds from softmax to matrix
-            preds = torch.argmax(preds, dim=0)  # (16, 44)
-            # Преобразуем индексы в значения глубины (2 м + индекс * 0.5 м)
-            preds = 2.0 + preds * 0.5  # (16, 44) 
+            # # convert preds from softmax to matrix
+            # preds = torch.argmax(preds, dim=0)  # (16, 44)
+            # # Преобразуем индексы в значения глубины (2 м + индекс * 0.5 м)
+            # preds = 2.0 + preds * 0.5  # (16, 44) 
+
+            preds, gt = result['pred'], result['label']
 
             # Reshape to 1D for error calculations
             preds, gt = (arr.reshape(-1).cpu().numpy() for arr in (preds, gt))

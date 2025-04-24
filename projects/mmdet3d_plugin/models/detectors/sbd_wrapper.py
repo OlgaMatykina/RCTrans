@@ -328,10 +328,10 @@ class SBD_BIG(MVXTwoStageDetector):
 
         if return_loss:
             outs = self.depth_model.forward_train(data)
-            loss, monitor = self.depth_model.loss(outs, data)
-            return {'valid_loss': loss[0], 'train_loss': loss[1]}
+            depth_loss = self.depth_model.loss(outs, data)
+            return {'depth_loss': depth_loss}
         else:
-            return self.depth_model.forward_eval(data)
+            return [self.depth_model.forward_eval(data)]
 
 
     def forward_train(self,

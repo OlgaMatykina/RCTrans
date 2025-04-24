@@ -230,7 +230,7 @@ lr_config = dict(
 # evaluation = dict(interval=1, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch*num_epochs+1, pipeline=test_pipeline)
-evaluation = dict(interval=num_iters_per_epoch*num_epochs+1, metric='epe:0-80', save_best='epe:0-80', rule='less')
+evaluation = dict(interval=1, pipeline=test_pipeline, save_best='epe:0-80', rule='less')
 
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
@@ -239,15 +239,14 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # runner = dict(
 #     type='EpochBasedRunner', max_epochs=num_epochs)
 
-checkpoint_config = dict(interval=1000, max_keep_ckpts=3)
+checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 
 # checkpoint_config = dict(
 #     max_keep_ckpts=3,
 #     save_best='loss_val',  # Укажи метрику, по которой сохранять лучшие чекпоинты
 #     rule='smaller'    # Большее значение лучше (обычно для mAP)
 # )
-runner = dict(
-    type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
+runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
 load_from=None
 # resume_from='work_dirs/rctrans_gt_depth/iter_40004.pth'
 resume_from=None
@@ -258,18 +257,18 @@ log_config = dict(
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(
-        #     type='WandbLoggerHook',
-        #     init_kwargs=dict(
-        #         project='radar-camera',   # Название проекта в WandB
-        #         name='lab_comp SBD',     # Имя эксперимента
-        #         config=dict(                # Дополнительные настройки эксперимента
-        #             batch_size=batch_size,
-        #             model='SBD',
-        #         )
-        #     )
-        # ),
+        dict(
+            type='WandbLoggerHook',
+            init_kwargs=dict(
+                project='radar-camera',   # Название проекта в WandB
+                name='lab_comp SBD',     # Имя эксперимента
+                config=dict(                # Дополнительные настройки эксперимента
+                    batch_size=batch_size,
+                    model='SBD',
+                )
+            )
+        ),
     ],
 )
 
-workflow = [('train', 1), ('val', 1)]
+workflow = [('train', 1)]
