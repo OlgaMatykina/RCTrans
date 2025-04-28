@@ -82,6 +82,8 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/full_dino_from_res18/
 
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/full_dino_from_init_on_full/
+
 ```
 Evaluation
 ```
