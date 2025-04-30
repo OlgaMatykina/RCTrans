@@ -356,7 +356,7 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_train.pkl',
+        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training
@@ -387,7 +387,7 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=16, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=32, grad_clip=dict(max_norm=35, norm_type=2))
 
 # learning policy
 lr_config = dict(
@@ -411,7 +411,8 @@ checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 # runner = dict(type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
 # runner = dict(type='IterBasedRunner', max_iters=1)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
-load_from='ckpts/res18.pth'
+# load_from='work_dirs/rcdetr_sbd_matrixvt_from_res18_freezed_all_except_new_branch/best_pts_bbox_NuScenes/NDS_epoch_4.pth'
+load_from=None
 # resume_from='work_dirs/rctrans_gt_depth/iter_40004.pth'
 # resume_from='work_dirs/rcdetr_sbd_matrixvt/iter_20020.pth'
 resume_from=None
@@ -419,7 +420,7 @@ resume_from=None
 custom_hooks = [
     dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
     dict(type='CheckInvalidLossHook', interval=1),
-    dict(type='FreezeAllButNewDepthHook')
+    # dict(type='FreezeAllButNewDepthHook')
     ]
 
 log_config = dict(
@@ -430,7 +431,8 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='lab_comp sbd RCTrans from res18.pth with freezed RCTrans',     # Имя эксперимента
+                # name='lab_comp sbd RCTrans from res18.pth with freezed RCTrans all except new branch and head',     # Имя эксперимента
+                name='lab_comp sbd RCTrans from init on full dataset',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',
