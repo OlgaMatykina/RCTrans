@@ -102,6 +102,8 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×7
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/rcdetr_sbd_matrixvt_from_init_on_full/
 
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/rcdetr_sbd_matrixvt_imbev_branch_from_init_on_full/
+
 
 ```
 Evaluation

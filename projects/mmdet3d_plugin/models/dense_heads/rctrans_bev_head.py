@@ -751,7 +751,7 @@ class RCTransBEVHead(AnchorFreeHead):
         rv_pos_embed = rearrange(rv_pos_embeds, "(bs v) h w c -> (v h w) bs c", bs=bs)
       # print('RCTrans Head RV POS EMBED SHAPE', rv_pos_embed.shape)
 
-        memory, pos_embed = torch.cat([bev_memory + imbev_memory, rv_memory], dim=0).transpose(1,0), torch.cat([bev_pos_embed + imbev_pos_embed, rv_pos_embed], dim=0).transpose(1,0)
+        memory, pos_embed = torch.cat([bev_memory, imbev_memory, rv_memory], dim=0).transpose(1,0), torch.cat([bev_pos_embed, imbev_pos_embed, rv_pos_embed], dim=0).transpose(1,0)
         # print('RCTrans Head MEMORY SHAPE', memory.shape)
         # print('RCTrans Head POS EMBED SHAPE', pos_embed.shape)
 
