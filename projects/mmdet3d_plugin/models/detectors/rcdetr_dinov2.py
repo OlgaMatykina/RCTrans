@@ -81,8 +81,9 @@ class RCDETR(MVXTwoStageDetector):
                  radar_dense_encoder=None,
                  radar_backbone=None,
                  radar_neck=None,
-                 latent_dim=128,
+                 latent_dim=256,
                  freeze_dino=True,
+                 dino_backbone=True,
                  ):
         super(RCDETR, self).__init__(pts_voxel_layer, pts_voxel_encoder,
                              pts_middle_encoder, pts_fusion_layer,
@@ -123,37 +124,37 @@ class RCDETR(MVXTwoStageDetector):
         else:
             self.radar_neck = None
         
-        # self.img_backbone = DinoAdapter(add_vit_feature=False, pretrain_size=518, pretrained_vit=True,
-        #               num_heads=6, embed_dim=384, freeze_dino=freeze_dino)
+        self.dino_backbone = builder.build_backbone(dino_backbone)
 
         self.img_feats_compr_4 = nn.Sequential(
-            nn.Conv2d(in_channels=self.img_backbone.embed_dim, out_channels=latent_dim,
+            nn.Conv2d(in_channels=self.dino_backbone.embed_dim, out_channels=latent_dim,
                         kernel_size=1, stride=1, bias=True),
             nn.InstanceNorm2d(latent_dim),
             nn.GELU(),
         )
         self.img_feats_compr_8 = nn.Sequential(
-            nn.Conv2d(in_channels=self.img_backbone.embed_dim, out_channels=latent_dim,
+            nn.Conv2d(in_channels=self.dino_backbone.embed_dim, out_channels=latent_dim,
                         kernel_size=1, stride=1, bias=True),
             nn.InstanceNorm2d(latent_dim),
             nn.GELU(),
         )
         self.img_feats_compr_16 = nn.Sequential(
-            nn.Conv2d(in_channels=self.img_backbone.embed_dim, out_channels=latent_dim,
+            nn.Conv2d(in_channels=self.dino_backbone.embed_dim, out_channels=latent_dim,
                         kernel_size=1, stride=1, bias=True),
             nn.InstanceNorm2d(latent_dim),
             nn.GELU(),
         )
         self.img_feats_compr_32 = nn.Sequential(
-            nn.Conv2d(in_channels=self.img_backbone.embed_dim, out_channels=latent_dim,
+            nn.Conv2d(in_channels=self.dino_backbone.embed_dim, out_channels=latent_dim,
                         kernel_size=1, stride=1, bias=True),
             nn.InstanceNorm2d(latent_dim),
             nn.GELU(),
         )
 
         self.dino_ms_fuse = DinoMulti2SingleScale(in_channels=4 * latent_dim, out_channels=latent_dim)
+        self.dino_weight = nn.Parameter(torch.tensor(0.05))
 
-    def extract_img_feat(self, img, dinov2, len_queue=1, training_mode=False):
+    def extract_img_feat(self, img, len_queue=1, training_mode=False): #dinov2
         """Extract features of images."""
         B = img.size(0)
 
@@ -168,45 +169,38 @@ class RCDETR(MVXTwoStageDetector):
             if self.use_grid_mask:
                 img = self.grid_mask(img)
 
-            # img_feats = self.img_backbone.forward(img, facet=self.img_backbone.facet)
-            # img_feats = img_feats.transpose(2,3)
-            # img_feats = rearrange(img_feats, 'b 1 c (h w) -> b 1 c h w', h=self.img_backbone.num_patches_h).squeeze(dim=1)
-            # img_feats = [img_feats]
-
-            # if self.encoder_type == 'dino_v2':
-            img_encoder_feats, dino_out = self.img_backbone(img, dinov2)
-
-            # img_chunks = torch.chunk(img, chunks=6, dim=0)  # создаёт два тензора по (3, 3, 448, 896)
-
-            # # Прогоняем по очереди
-            # img_encoder_feats_list = []
-            # dino_out_list = []
-
-            # for chunk in img_chunks:
-            #     img_encoder_feats_part, dino_out_part = self.img_backbone(chunk)
-            #     img_encoder_feats_list.append(img_encoder_feats_part)
-            #     dino_out_list.append(dino_out_part)
-
-            # # Склеиваем обратно по batch-оси
-            # img_encoder_feats = torch.cat(img_encoder_feats_list, dim=0)
-            # dino_out = torch.cat(dino_out_list, dim=0)
-
-            # compress dino feats down to 128 channels
-            feats_4_ = self.img_feats_compr_4(img_encoder_feats[0])
-            feats_8_ = self.img_feats_compr_8(img_encoder_feats[1])
-            feats_16_ = self.img_feats_compr_16(img_encoder_feats[2])
-            feats_32_ = self.img_feats_compr_32(img_encoder_feats[3])
-
-            # combine all feature maps into one...
-            img_feats = self.dino_ms_fuse(x_4=feats_4_, x_8=feats_8_, x_16=feats_16_, x_32=feats_32_)
-
-            # print(img_feats.shape)
-            img_feats = F.interpolate(img_feats, size=(img.shape[2]//14, img.shape[3]//10), mode='bilinear', align_corners=False)
-            # print(img_feats.shape)
-
-            img_feats = [img_feats]
+            img_feats = self.img_backbone(img)
             if isinstance(img_feats, dict):
                 img_feats = list(img_feats.values())
+
+            # print('RESNET FEATS', img_feats[0].shape, img_feats[1].shape)
+    
+            # if self.encoder_type == 'dino_v2':
+            img_reshaped = F.interpolate(img, size=(224, 448), mode='bilinear', align_corners=False)
+            img_dinov2_feats, _ = self.dino_backbone(img_reshaped)
+
+            # compress dino feats down to 128 channels
+            feats_4_ = self.img_feats_compr_4(img_dinov2_feats[0])
+            feats_8_ = self.img_feats_compr_8(img_dinov2_feats[1])
+            feats_16_ = self.img_feats_compr_16(img_dinov2_feats[2])
+            feats_32_ = self.img_feats_compr_32(img_dinov2_feats[3])
+
+            # combine all feature maps into one...
+            img_dinov2_feats = self.dino_ms_fuse(x_4=feats_4_, x_8=feats_8_, x_16=feats_16_, x_32=feats_32_)
+
+            # print(img_feats.shape)
+            img_dinov2_feats_level2 = F.interpolate(img_dinov2_feats, size=(img_reshaped.shape[2]//14, img_reshaped.shape[3]//10), mode='bilinear', align_corners=False)
+            # img_dinov2_feats_level3 = F.interpolate(img_dinov2_feats, size=(img_reshaped.shape[2]//28, img_reshaped.shape[3]//20), mode='bilinear', align_corners=False)
+            # print('DINOV2 FEATS', img_dinov2_feats_level2.shape)
+            # print(img_feats.shape)
+
+            # img_feats = [img_feats]
+            # if isinstance(img_feats, dict):
+            #     img_feats = list(img_feats.values())
+
+            img_feats0 = img_feats[0]
+            img_feats0 = img_feats0 + self.dino_weight * img_dinov2_feats_level2
+            img_feats = [img_feats0, img_feats[1]]
         else:
             return None
         if self.with_img_neck:
@@ -265,15 +259,15 @@ class RCDETR(MVXTwoStageDetector):
         return voxels, num_points, coors_batch
 
     @auto_fp16(apply_to=('img', 'radar'), out_fp32=True)
-    def extract_feat(self, img, dinov2, radar, T, training_mode=False):
+    def extract_feat(self, img, radar, T, training_mode=False): #dinov2
         """Extract features from images and points."""
 
         if radar is not None:
-            img_feats = self.extract_img_feat(img, dinov2, T, training_mode)
+            img_feats = self.extract_img_feat(img, T, training_mode) #dinov2
             radar_feats = self.extract_radar_feat(radar)
             return img_feats, radar_feats
         else:
-            img_feats = self.extract_img_feat(img, dinov2, T, training_mode)
+            img_feats = self.extract_img_feat(img, T, training_mode) #dinov2
             return img_feats
 
     def obtain_history_memory(self,
@@ -434,16 +428,16 @@ class RCDETR(MVXTwoStageDetector):
             self.test_flag = False
 
         T = data['img'].size(1)
-        dinov2 = data['dinov2']
+        # dinov2 = data['dinov2']
         prev_img = data['img'][:, :-self.num_frame_backbone_grads]
         rec_img = data['img'][:, -self.num_frame_backbone_grads:]
         rec_radar = data['radar']
-        rec_img_feats, rec_radar_feats = self.extract_feat(rec_img, dinov2, rec_radar, self.num_frame_backbone_grads)
+        rec_img_feats, rec_radar_feats = self.extract_feat(rec_img, rec_radar, self.num_frame_backbone_grads) #dinov2
         
         if T-self.num_frame_backbone_grads > 0:
             self.eval()
             with torch.no_grad():
-                prev_img_feats = self.extract_feat(prev_img, dinov2, None, T-self.num_frame_backbone_grads, True)
+                prev_img_feats = self.extract_feat(prev_img, None, T-self.num_frame_backbone_grads, True) #dinov2
             self.train()
             data['img_feats'] = torch.cat([prev_img_feats, rec_img_feats], dim=1)
             data['radar_feats'] = rec_radar_feats
@@ -500,7 +494,7 @@ class RCDETR(MVXTwoStageDetector):
         """Test function without augmentaiton."""
         # data['img_feats'] = self.extract_img_feat(data['img'], 1)
         # data['radar_feats'] = self.extract_radar_feat(data['radar'])
-        rec_img_feats, rec_radar_feats = self.extract_feat(data['img'], data['dinov2'], data['radar'], 1)
+        rec_img_feats, rec_radar_feats = self.extract_feat(data['img'], data['radar'], 1) #dinov2
         data['img_feats'] = rec_img_feats
         data['radar_feats'] = rec_radar_feats
 

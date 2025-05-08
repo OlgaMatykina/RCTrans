@@ -131,7 +131,7 @@ class DinoAdapter(DinoVisionTransformer):
         c4 = c4 + self.level_embed[2]
         return c2, c3, c4
 
-    def forward(self, x, dinov2_feats):
+    def forward(self, x):
         deform_inputs1, deform_inputs2 = deform_inputs(x)
 
         # SPM forward
@@ -153,14 +153,14 @@ class DinoAdapter(DinoVisionTransformer):
         cls = self.cls_token.expand(x.shape[0], -1, -1) + self.pos_embed[:, 0]
 
         # Interaction
-        # outs = list()
-        # for i, layer in enumerate(self.interactions):
-        #     indexes = self.interaction_indexes[i]
-        #     x, c, cls = layer(x, c, cls, self.blocks[indexes[0]:indexes[-1] + 1],
-        #                  deform_inputs1, deform_inputs2, H_adapt, W_adapt)
-        #     outs.append(x.transpose(1, 2).view(bs, dim, H_vit, W_vit).contiguous())
+        outs = list()
+        for i, layer in enumerate(self.interactions):
+            indexes = self.interaction_indexes[i]
+            x, c, cls = layer(x, c, cls, self.blocks[indexes[0]:indexes[-1] + 1],
+                         deform_inputs1, deform_inputs2, H_adapt, W_adapt)
+            outs.append(x.transpose(1, 2).view(bs, dim, H_vit, W_vit).contiguous())
 
-        outs, x, c, cls = dinov2_feats.values()
+        # outs, x, c, cls = dinov2_feats.values()
 
         outs = [o.squeeze(0) for o in outs]
         x = x.squeeze(0)

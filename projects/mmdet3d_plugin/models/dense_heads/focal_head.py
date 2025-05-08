@@ -51,8 +51,7 @@ class FocalHead(AnchorFreeHead):
                  num_classes,
                  in_channels=256,
                  embed_dims=256,
-                 stride_h=14,
-                 stride_w=10,
+                 stride=16,
                  use_hybrid_tokens=False,
                  train_ratio=1.0,
                  infer_ratio=1.0,
@@ -100,8 +99,7 @@ class FocalHead(AnchorFreeHead):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
         self.fp16_enabled = False
-        self.stride_h=stride_h
-        self.stride_w=stride_w
+        self.stride=stride
         self.use_hybrid_tokens=use_hybrid_tokens
         self.train_ratio=train_ratio
         self.infer_ratio=infer_ratio
@@ -373,7 +371,7 @@ class FocalHead(AnchorFreeHead):
 
     def _get_heatmap_single(self, obj_centers2d, obj_bboxes, img_shape):
         img_h, img_w, _ = img_shape
-        heatmap = torch.zeros(img_h // self.stride_h, img_w // self.stride_w, device=obj_centers2d.device)
+        heatmap = torch.zeros(img_h // self.stride, img_w // self.stride, device=obj_centers2d.device)
         if len(obj_centers2d) != 0:
             l = obj_centers2d[..., 0:1] - obj_bboxes[..., 0:1]
             t = obj_centers2d[..., 1:2] - obj_bboxes[..., 1:2]
