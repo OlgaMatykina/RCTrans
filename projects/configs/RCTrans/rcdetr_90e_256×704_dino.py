@@ -77,7 +77,7 @@ model = dict(
         ),
     img_neck=dict(
         type='CPFPN',  ###remove unused parameters 
-        in_channels=[384],
+        in_channels=[128],
         out_channels=256,
         num_outs=1),
     img_roi_head=dict(
@@ -204,14 +204,15 @@ model = dict(
 
 
 dataset_type = 'CustomNuScenesDataset'
-data_root = '/home/docker_rctrans/HPR3/nuscenes/'
-ann_root = '/home/docker_rctrans/HPR3/'
+data_root = '/home/docker_rctrans/HPR1/nuScenes2d/nuscenes/'
+ann_root = '/home/docker_rctrans/HPR1/nuScenes2d/'
 file_client_args = dict(backend='disk')
 
 
 ida_aug_conf = {
         "resize_lim": (0.38, 0.55),
         "final_dim": (448, 896),
+        # "final_dim": (128, 352),
         "bot_pct_lim": (0.0, 0.0),
         "rot_lim": (0.0, 0.0),
         "H": 900,
@@ -283,7 +284,7 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_train.pkl',
+        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training

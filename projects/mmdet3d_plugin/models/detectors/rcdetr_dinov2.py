@@ -185,6 +185,8 @@ class RCDETR(MVXTwoStageDetector):
             img_feats = self.dino_ms_fuse(x_4=feats_4_, x_8=feats_8_, x_16=feats_16_, x_32=feats_32_)
 
             print(img_feats.shape)
+            img_feats = F.interpolate(img_feats, size=(16, 44))
+            img_feats = [img_feats]
 
             if isinstance(img_feats, dict):
                 img_feats = list(img_feats.values())
@@ -192,6 +194,8 @@ class RCDETR(MVXTwoStageDetector):
             return None
         if self.with_img_neck:
             img_feats = self.img_neck(img_feats)
+
+        print(img_feats[0].shape)
 
         BN, C, H, W = img_feats[self.position_level].size()
         if self.training or training_mode:
