@@ -88,32 +88,32 @@ model = dict(
             centers2d_cost=dict(type='BBox3DL1Cost', weight=10.0)))
         ),
     # radar encoder
-    radar_voxel_layer=dict(
-        num_point_features=6,
-        max_num_points=10, 
-        voxel_size=radar_voxel_size, 
-        max_voxels=(90000, 120000),
-        point_cloud_range=point_cloud_range),
-    radar_voxel_encoder=dict(
-        type='RadarFeatureNet',
-        in_channels=6,
-        feat_channels=[32, 64],
-        with_distance=False,
-        point_cloud_range=point_cloud_range,
-        voxel_size=radar_voxel_size,
-        norm_cfg=dict(
-            type='BN1d',
-            eps=1.0e-3,
-            momentum=0.01)
-    ),
-    radar_middle_encoder=dict(
-        type='PointPillarsScatter_futr3d',
-        in_channels=64,
-        output_shape=[128, 128],
-    ),
-    radar_dense_encoder=dict(
-        type='Radar_dense_encoder_tf',
-    ),
+    # radar_voxel_layer=dict(
+    #     num_point_features=6,
+    #     max_num_points=10, 
+    #     voxel_size=radar_voxel_size, 
+    #     max_voxels=(90000, 120000),
+    #     point_cloud_range=point_cloud_range),
+    # radar_voxel_encoder=dict(
+    #     type='RadarFeatureNet',
+    #     in_channels=6,
+    #     feat_channels=[32, 64],
+    #     with_distance=False,
+    #     point_cloud_range=point_cloud_range,
+    #     voxel_size=radar_voxel_size,
+    #     norm_cfg=dict(
+    #         type='BN1d',
+    #         eps=1.0e-3,
+    #         momentum=0.01)
+    # ),
+    # radar_middle_encoder=dict(
+    #     type='PointPillarsScatter_futr3d',
+    #     in_channels=64,
+    #     output_shape=[128, 128],
+    # ),
+    # radar_dense_encoder=dict(
+    #     type='Radar_dense_encoder_tf',
+    # ),
     # detect head
     pts_bbox_head=dict(
         type='RCTransHead',
@@ -325,17 +325,17 @@ log_config = dict(
     interval=5,
     hooks=[
         dict(type='TextLoggerHook'),
-        dict(
-            type='WandbLoggerHook',
-            init_kwargs=dict(
-                project='radar-camera',   # Название проекта в WandB
-                name='RCTrans',     # Имя эксперимента
-                config=dict(                # Дополнительные настройки эксперимента
-                    batch_size=batch_size,
-                    model='rcdetr',
-                )
-            )
-        ),
+        # dict(
+        #     type='WandbLoggerHook',
+        #     init_kwargs=dict(
+        #         project='radar-camera',   # Название проекта в WandB
+        #         name='RCTrans',     # Имя эксперимента
+        #         config=dict(                # Дополнительные настройки эксперимента
+        #             batch_size=batch_size,
+        #             model='rcdetr',
+        #         )
+        #     )
+        # ),
     ],
 )
 

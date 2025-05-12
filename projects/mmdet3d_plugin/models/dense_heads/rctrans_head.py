@@ -690,23 +690,25 @@ class RCTransHead(AnchorFreeHead):
         self.pre_update_memory(data)
         # new code #
         x_img = data['img_feats']
-        x_radar = data['radar_feats']
+        # x_radar = data['radar_feats']
         B, N, C, H, W = x_img.shape
         
         memory_img = self.memory_embed_img(x_img.reshape(B*N, C, H, W))
-        memory_radar = self.memory_embed_radar(x_radar)
+        # memory_radar = self.memory_embed_radar(x_radar)
 
         rv_pos_embeds = self._rv_pe(memory_img, img_metas)
-        bev_pos_embeds = self.bev_embedding(pos2embed(self.coords_bev(x_radar).to(x_radar.device), num_pos_feats=self.hidden_dim))
+        # bev_pos_embeds = self.bev_embedding(pos2embed(self.coords_bev(x_radar).to(x_radar.device), num_pos_feats=self.hidden_dim))
         # pos_embed and memory
-        bs, c, h, w = memory_radar.shape
-        bev_memory = rearrange(memory_radar, "bs c h w -> (h w) bs c") # [bs, c, h, w] -> [h*w, bs, c]
+        # bs, c, h, w = memory_radar.shape
+        bs = B
+        # bev_memory = rearrange(memory_radar, "bs c h w -> (h w) bs c") # [bs, c, h, w] -> [h*w, bs, c]
         rv_memory = rearrange(memory_img, "(bs v) c h w -> (v h w) bs c", bs=bs)
 
-        bev_pos_embed = bev_pos_embeds.unsqueeze(1).repeat(1, bs, 1) # [bs, n, c, h, w] -> [n*h*w, bs, c]
+        # bev_pos_embed = bev_pos_embeds.unsqueeze(1).repeat(1, bs, 1) # [bs, n, c, h, w] -> [n*h*w, bs, c]
         rv_pos_embed = rearrange(rv_pos_embeds, "(bs v) h w c -> (v h w) bs c", bs=bs)
 
-        memory, pos_embed = torch.cat([bev_memory, rv_memory], dim=0).transpose(1,0), torch.cat([bev_pos_embed, rv_pos_embed], dim=0).transpose(1,0)
+        # memory, pos_embed = torch.cat([bev_memory, rv_memory], dim=0).transpose(1,0), torch.cat([bev_pos_embed, rv_pos_embed], dim=0).transpose(1,0)
+        memory, pos_embed = torch.cat([rv_memory], dim=0).transpose(1,0), torch.cat([rv_pos_embed], dim=0).transpose(1,0)
         #############
 
         # query

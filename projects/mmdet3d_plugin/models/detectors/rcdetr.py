@@ -340,8 +340,8 @@ class RCDETR(MVXTwoStageDetector):
         T = data['img'].size(1)
         prev_img = data['img'][:, :-self.num_frame_backbone_grads]
         rec_img = data['img'][:, -self.num_frame_backbone_grads:]
-        rec_radar = data['radar']
-        rec_img_feats, rec_radar_feats = self.extract_feat(rec_img, rec_radar, self.num_frame_backbone_grads)
+        # rec_radar = data['radar']
+        rec_img_feats = self.extract_feat(rec_img, None, self.num_frame_backbone_grads)
         
         if T-self.num_frame_backbone_grads > 0:
             self.eval()
@@ -349,10 +349,10 @@ class RCDETR(MVXTwoStageDetector):
                 prev_img_feats = self.extract_feat(prev_img, None, T-self.num_frame_backbone_grads, True)
             self.train()
             data['img_feats'] = torch.cat([prev_img_feats, rec_img_feats], dim=1)
-            data['radar_feats'] = rec_radar_feats
+            # data['radar_feats'] = rec_radar_feats
         else:
             data['img_feats'] = rec_img_feats
-            data['radar_feats'] = rec_radar_feats
+            # data['radar_feats'] = rec_radar_feats
 
         losses = self.obtain_history_memory(gt_bboxes_3d,
                         gt_labels_3d, gt_bboxes,
@@ -403,9 +403,9 @@ class RCDETR(MVXTwoStageDetector):
         """Test function without augmentaiton."""
         # data['img_feats'] = self.extract_img_feat(data['img'], 1)
         # data['radar_feats'] = self.extract_radar_feat(data['radar'])
-        rec_img_feats, rec_radar_feats = self.extract_feat(data['img'], data['radar'], 1)
+        rec_img_feats, rec_radar_feats = self.extract_feat(data['img'], None, 1)
         data['img_feats'] = rec_img_feats
-        data['radar_feats'] = rec_radar_feats
+        # data['radar_feats'] = rec_radar_feats
 
         bbox_list = [dict() for i in range(len(img_metas))]
         bbox_pts = self.simple_test_pts(

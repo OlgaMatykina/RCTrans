@@ -64,10 +64,12 @@ class RCTransTransformerDecoder(TransformerLayerSequence):
         intermediate = []
         assert reference_points is not None
         
-        bev_key = key[:self.bev_size * self.bev_size, :, :]
-        rv_key = key[self.bev_size * self.bev_size:, :, :]
-        bev_key_pos = key_pos[:self.bev_size * self.bev_size, :, :]
-        rv_key_pos = key_pos[self.bev_size * self.bev_size:, :, :]
+        # bev_key = key[:self.bev_size * self.bev_size, :, :]
+        # rv_key = key[self.bev_size * self.bev_size:, :, :]
+        rv_key = key
+        # bev_key_pos = key_pos[:self.bev_size * self.bev_size, :, :]
+        # rv_key_pos = key_pos[self.bev_size * self.bev_size:, :, :]
+        rv_key_pos = key_pos
 
         bev_temp_pos = temp_pos[0].transpose(1,0).contiguous()
         rv_temp_pos = temp_pos[1].transpose(1,0).contiguous()
@@ -78,7 +80,7 @@ class RCTransTransformerDecoder(TransformerLayerSequence):
 
         for index in range(int(len(self.layers)/2)):
 
-            query = self.layers[2*index](query, bev_key, bev_key, bev_query_pos, bev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
+            # query = self.layers[2*index](query, bev_key, bev_key, bev_query_pos, bev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
             query = self.layers[2*index + 1](query, rv_key, rv_key, rv_query_pos, rv_key_pos, temp_memory, rv_temp_pos, attn_masks) # [Nq, B, C]
             
             if self.post_norm is not None:
