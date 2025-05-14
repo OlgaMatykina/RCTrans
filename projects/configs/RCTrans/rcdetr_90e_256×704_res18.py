@@ -322,7 +322,8 @@ checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
 load_from=None
 # resume_from='ckpts/res18.pth'
-resume_from=None
+# resume_from=None
+resume_from='work_dirs/rctrans_on_full_from_init/epoch_12.pth'
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [
     dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
