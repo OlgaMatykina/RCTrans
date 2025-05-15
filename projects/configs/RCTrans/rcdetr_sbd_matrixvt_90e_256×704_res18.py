@@ -370,9 +370,9 @@ data = dict(
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
     val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas',], 
-            queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, seq_mode=True,),
+            queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, seq_mode=True,),
     test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas', ], 
-            queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+            queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
@@ -400,7 +400,7 @@ lr_config = dict(
 
 # evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
-evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater', by_epoch=True)
+evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater')
 
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
@@ -415,7 +415,7 @@ runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
 load_from=None
 # resume_from='work_dirs/rctrans_gt_depth/iter_40004.pth'
 # resume_from='work_dirs/rcdetr_sbd_matrixvt/iter_20020.pth'
-resume_from=None
+resume_from='/home/docker_rctrans/RCTrans/work_dirs/rcdetr_sbd_matrixvt_imbev_branch_from_init_on_full/NDS_epoch_23.pth'
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [
     dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
@@ -427,18 +427,18 @@ log_config = dict(
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        dict(
-            type='WandbLoggerHook',
-            init_kwargs=dict(
-                project='radar-camera',   # Название проекта в WandB
-                # name='lab_comp sbd RCTrans from res18.pth with freezed RCTrans all except new branch and head',     # Имя эксперимента
-                name='sbd RCTrans with separated imbev branch from init on full dataset',     # Имя эксперимента
-                config=dict(                # Дополнительные настройки эксперимента
-                    batch_size=batch_size,
-                    model='rcdetr',
-                )
-            )
-        ),
+        # dict(
+        #     type='WandbLoggerHook',
+        #     init_kwargs=dict(
+        #         project='radar-camera',   # Название проекта в WandB
+        #         # name='lab_comp sbd RCTrans from res18.pth with freezed RCTrans all except new branch and head',     # Имя эксперимента
+        #         name='sbd RCTrans with separated imbev branch from init on full dataset',     # Имя эксперимента
+        #         config=dict(                # Дополнительные настройки эксперимента
+        #             batch_size=batch_size,
+        #             model='rcdetr',
+        #         )
+        #     )
+        # ),
     ],
 )
 

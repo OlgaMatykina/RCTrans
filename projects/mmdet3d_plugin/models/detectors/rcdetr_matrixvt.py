@@ -24,6 +24,8 @@ from einops import rearrange
 
 from projects.mmdet3d_plugin.models.backbones.matrixvt_slim import MatrixVT
 
+from matplotlib import pyplot as plt
+
 
 @DETECTORS.register_module()
 class RCDETR_MatrixVT(MVXTwoStageDetector):
@@ -574,6 +576,23 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         outs_depth = self.radar_depth_model.forward_test(data["img"], data['radar_depth'], data['radar'], data['num_points'])
 
         external_depth, _ =  outs_depth
+        print('external_depth', external_depth.shape)
+        features = external_depth.squeeze().cpu().numpy()
+        fig, axs = plt.subplots(3, 2, figsize=(8, 8))
+        for i in range(3):
+            for j in range(2):
+                index = i * 2 + j
+                if index < features.shape[0]:
+                    ax = axs[i, j]
+                    ax.imshow(features[index], cmap='hot', interpolation='nearest')
+                    ax.axis('off')  # Отключаем оси
+
+        # Настроим отступы и сохраняем изображение
+        plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        plt.savefig('external_depth.png', dpi=300)
+        plt.show()
+
+
         B, N, C, H, W = data['img'].shape
         # external_depth = external_depth[-1][:,:, :H,:W]
         external_depth = rearrange(external_depth, '(b n) c h w -> b 1 n c h w', b=B)
@@ -581,9 +600,76 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         rec_img_feats, rec_radar_feats = self.extract_feat(data['img'], data['radar'], 1)
         bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego, external_depth)
         
+        print('depth', depth.shape)
+        depth_bins = torch.linspace(2, 58, steps=112)  # реальные значения глубины, если нужно
+        # Найти индекс глубины с максимальной активностью
+        depth_indices = depth.argmax(dim=1)  # (6, 16, 44) — индексы в диапазоне [0, 111]
+        # Если нужны реальные значения глубины (в метрах), а не индексы:
+        depth_map = depth_bins[depth_indices]  # (6, 16, 44) — в метрах
+        print((depth_indices > 0).any())
+        features = depth_map.squeeze().cpu().numpy()
+        fig, axs = plt.subplots(3, 2, figsize=(8, 8))
+        for i in range(3):
+            for j in range(2):
+                index = i * 2 + j
+                if index < features.shape[0]:
+                    ax = axs[i, j]
+                    ax.imshow(features[index], cmap='hot', interpolation='nearest')
+                    ax.axis('off')  # Отключаем оси
+
+        # Настроим отступы и сохраняем изображение
+        plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        plt.savefig('depth.png', dpi=300)
+        plt.show()
+
         data['img_feats'] = rec_img_feats.squeeze(1)
         data['radar_feats'] = rec_radar_feats
         data['bev_feats'] = bev_feats
+
+        
+        # print('radar_feats', rec_radar_feats.shape)
+
+        # features = rec_radar_feats.squeeze().cpu().numpy()  # Замените на ваши данные
+
+        # # Размер итогового изображения
+        # grid_size = 8
+        # fig, axs = plt.subplots(grid_size, grid_size, figsize=(8, 8))
+
+        # # Итерируем по всем feature maps
+        # for i in range(grid_size):
+        #     for j in range(grid_size):
+        #         index = i * grid_size + j
+        #         if index < features.shape[0]:
+        #             ax = axs[i, j]
+        #             ax.imshow(features[index], cmap='hot', interpolation='nearest')
+        #             ax.axis('off')  # Отключаем оси
+
+        # # Настроим отступы и сохраняем изображение
+        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        # plt.savefig('radar_bev_feature_maps_grid.png', dpi=300)
+        # plt.show()
+
+        # print('bev_feats', bev_feats.shape)
+
+        # features = bev_feats.squeeze().cpu().numpy()  # Замените на ваши данные
+
+        # # Размер итогового изображения
+        # grid_size = 8
+        # fig, axs = plt.subplots(grid_size, grid_size, figsize=(8, 8))
+
+        # # Итерируем по всем feature maps
+        # for i in range(grid_size):
+        #     for j in range(grid_size):
+        #         index = i * grid_size + j
+        #         if index < features.shape[0]:
+        #             ax = axs[i, j]
+        #             ax.imshow(features[index], cmap='hot', interpolation='nearest')
+        #             ax.axis('off')  # Отключаем оси
+
+        # # Настроим отступы и сохраняем изображение
+        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        # plt.savefig('image_bev_feature_maps_grid.png', dpi=300)
+        # plt.show()
 
         bbox_list = [dict() for i in range(len(img_metas))]
         bbox_pts = self.simple_test_pts(

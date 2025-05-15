@@ -127,6 +127,8 @@ bash mmdetection3d/tools/dist_test.sh projects/configs/MyFirstModel/pointpillar.
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py work_dirs/rcdetr_sbd_matrixvt/latest.pth 1 --eval bbox
 
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py ckpts/res18.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py work_dirs/rcdetr_sbd_matrixvt_imbev_branch_from_init_on_full/epoch23_sbd_pretrained.pth 1 --eval bbox
 ```
 Tracking
 ```

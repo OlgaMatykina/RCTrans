@@ -12,6 +12,8 @@ from mmdet.models.backbones.resnet import BasicBlock
 # from projects.mmdet3d_plugin.models.backbones.base_lss_fpn import BaseLSSFPN
 from mmdet3d.models.builder import BACKBONES
 
+from matplotlib import pyplot as plt
+
 
 class _ASPPModule(nn.Module):
 
@@ -685,7 +687,45 @@ class MatrixVT(nn.Module):
         ) = img_feats.shape
         source_features = img_feats[:, 0, ...]
         external_depth = external_depth.squeeze(1).squeeze(2) # delete sweeps and channels dims
+        
+        features = external_depth.squeeze().detach().cpu().numpy()
+        fig, axs = plt.subplots(3, 2, figsize=(8, 8))
+        for i in range(3):
+            for j in range(2):
+                index = i * 2 + j
+                if index < features.shape[0]:
+                    ax = axs[i, j]
+                    ax.imshow(features[index], cmap='hot', interpolation='nearest')
+                    ax.axis('off')  # Отключаем оси
+
+        # Настроим отступы и сохраняем изображение
+        plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        plt.savefig('external_depth.png', dpi=300)
+        plt.show()
+
         external_depth = self.get_downsampled_gt_depth(external_depth)
+
+        depth_bins = torch.linspace(2, 58, steps=112)  # реальные значения глубины, если нужно
+        # Найти индекс глубины с максимальной активностью
+        depth_indices = external_depth.argmax(dim=1)  # (6, 16, 44) — индексы в диапазоне [0, 111]
+        # Если нужны реальные значения глубины (в метрах), а не индексы:
+        depth_map = depth_bins[depth_indices]  # (6, 16, 44) — в метрах
+        # print((depth_indices > 0).any())
+        features = depth_map.squeeze().cpu().numpy()
+        fig, axs = plt.subplots(3, 2, figsize=(8, 8))
+        for i in range(3):
+            for j in range(2):
+                index = i * 2 + j
+                if index < features.shape[0]:
+                    ax = axs[i, j]
+                    ax.imshow(features[index], cmap='hot', interpolation='nearest')
+                    ax.axis('off')  # Отключаем оси
+
+        # Настроим отступы и сохраняем изображение
+        plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        plt.savefig('external_depth_112.png', dpi=300)
+        plt.show()
+
         # print('IMG FEATURES SHAPE', img_feats.shape, 'SOURCE FEATURES SHAPE', source_features.shape)
         depth_feature = self.depth_net(
             source_features.reshape(
@@ -702,6 +742,27 @@ class MatrixVT(nn.Module):
             feature = depth_feature[:, self.depth_channels:(
                 self.depth_channels + self.output_channels)].float()  # last output_channels channels
             depth = depth_feature[:, :self.depth_channels].float().softmax(1)
+
+            depth_bins = torch.linspace(2, 58, steps=112)  # реальные значения глубины, если нужно
+            # Найти индекс глубины с максимальной активностью
+            depth_indices = depth.argmax(dim=1)  # (6, 16, 44) — индексы в диапазоне [0, 111]
+            # Если нужны реальные значения глубины (в метрах), а не индексы:
+            depth_map = depth_bins[depth_indices]  # (6, 16, 44) — в метрах
+            # print((depth_indices > 0).any())
+            features = depth_map.squeeze().cpu().numpy()
+            fig, axs = plt.subplots(3, 2, figsize=(8, 8))
+            for i in range(3):
+                for j in range(2):
+                    index = i * 2 + j
+                    if index < features.shape[0]:
+                        ax = axs[i, j]
+                        ax.imshow(features[index], cmap='hot', interpolation='nearest')
+                        ax.axis('off')  # Отключаем оси
+
+            # Настроим отступы и сохраняем изображение
+            plt.subplots_adjust(wspace=0.1, hspace=0.1)
+            plt.savefig('depth_112.png', dpi=300)
+            plt.show()
 
             # img_feat_with_depth = self.reduce_and_project(
             #     feature, depth, mats_dict)  # [b*n, c, d, w]
