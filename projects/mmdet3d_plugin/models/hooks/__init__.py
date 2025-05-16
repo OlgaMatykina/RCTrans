@@ -1,1 +1,1 @@
-from .freeze import FreezeAllButNewDepthHook
+from .freeze import *

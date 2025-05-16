@@ -123,6 +123,9 @@ class RCDETR(MVXTwoStageDetector):
             self.radar_neck = builder.build_neck(radar_neck)
         else:
             self.radar_neck = None
+
+        # for param in self.parameters():
+        #     param.requires_grad = False
         
         self.dino_backbone = builder.build_backbone(dino_backbone)
 
@@ -350,10 +353,10 @@ class RCDETR(MVXTwoStageDetector):
         """
         location = self.prepare_location(img_metas, **data)
         if not requires_grad:
-            self.eval()
+            # self.eval()
             with torch.no_grad():
                 outs = self.pts_bbox_head(location, img_metas, None, **data)
-            self.train()
+            # self.train()
 
         else:
             outs_roi = self.forward_roi_head(location, **data)
@@ -383,6 +386,12 @@ class RCDETR(MVXTwoStageDetector):
         list[list[dict]]), with the outer list indicating test time
         augmentations.
         """
+        # for name, param in self.named_parameters():
+        #     if not param.requires_grad:
+        #         print(f"[Frozen] {name}")
+        #     # else:
+        #         # print(f"[Trainable] {name}")
+
         if return_loss:
             for key in ['gt_bboxes_3d', 'gt_labels_3d', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'img_metas']:
                 data[key] = list(zip(*data[key]))
@@ -435,10 +444,10 @@ class RCDETR(MVXTwoStageDetector):
         rec_img_feats, rec_radar_feats = self.extract_feat(rec_img, rec_radar, self.num_frame_backbone_grads) #dinov2
         
         if T-self.num_frame_backbone_grads > 0:
-            self.eval()
+            # self.eval()
             with torch.no_grad():
                 prev_img_feats = self.extract_feat(prev_img, None, T-self.num_frame_backbone_grads, True) #dinov2
-            self.train()
+            # self.train()
             data['img_feats'] = torch.cat([prev_img_feats, rec_img_feats], dim=1)
             data['radar_feats'] = rec_radar_feats
         else:

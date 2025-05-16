@@ -60,7 +60,7 @@ model = dict(
     ),
     img_backbone=dict(
         init_cfg=dict(
-            type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
+            type='Pretrained', checkpoint="/home/docker_rctrans/RCTrans/ckpts/resnet18-nuimages-pretrained-e2e.pth",
             prefix='backbone.'),       
         type='ResNet',
         depth=18,
@@ -302,7 +302,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW', 
-    lr=4e-4, # bs 8: 2e-4 || bs 16: 4e-4
+    lr=4e-5, # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -328,9 +328,12 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
 checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
-load_from='ckpts/res18.pth'
+# load_from='ckpts/res18.pth'
+load_from='work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
+# load_from='/home/docker_rctrans/RCTrans/work_dirs/tmp/epoch_1.pth'
 # load_from=None
 # resume_from='/home/docker_rctrans/RCTrans/work_dirs/dino/latest.pth'
+# resume_from='/home/docker_rctrans/RCTrans/work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [
@@ -340,7 +343,8 @@ custom_hooks = [
         interval=1,  # проверять на каждом шаге
         priority='VERY_HIGH'  # чтобы проверка шла до шага оптимизации
     ),
-    dict(type='FreezeAllButNewDepthHook', priority='NORMAL'),
+    # dict(type='FreezeAllButNewDepthHook', priority='VERY_HIGH'),
+    # dict(type='CheckFrozenParamsHook', priority='VERY_HIGH'),
 ]
 
 log_config = dict(
@@ -351,7 +355,7 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='flashattn dinov2s + adapter + resnet18 RCTrans from res18.pth with freezed RCTrans',     # Имя эксперимента
+                name='flashattn dinov2s + adapter + resnet18 RCTrans from res18 freezed epoch5 continue',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',

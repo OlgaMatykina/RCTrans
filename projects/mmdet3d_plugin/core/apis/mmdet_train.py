@@ -98,6 +98,13 @@ def custom_train_detector(model,
     # build runner
     optimizer = build_optimizer(model, cfg.optimizer)
 
+    # for i, group in enumerate(optimizer.param_groups):
+    #     for param in group['params']:
+    #         if param.requires_grad:
+    #             print(f'Param {i}: requires_grad=True')
+    #         else:
+    #             print(f'Param {i}: ❗️STILL in optimizer but requires_grad=False')
+
     if 'runner' not in cfg:
         cfg.runner = {
             'type': 'EpochBasedRunner',
@@ -198,6 +205,13 @@ def custom_train_detector(model,
 
     if cfg.resume_from:
         runner.resume(cfg.resume_from)
+        # # Повторно отфильтровать параметры с requires_grad=True
+        # new_params = [p for p in runner.model.parameters() if p.requires_grad]
+
+        # # Очистить старые группы и добавить новые
+        # runner.optimizer.param_groups = []
+        # runner.optimizer.add_param_group({'params': new_params})
+        
     elif cfg.load_from:
         runner.load_checkpoint(cfg.load_from)
     runner.run(data_loaders, cfg.workflow)
