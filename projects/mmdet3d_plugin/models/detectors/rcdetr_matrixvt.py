@@ -131,7 +131,7 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         self.depth_model = builder.build_backbone(depth_model)
         # self.radar_depth_model = builder.build_backbone(radar_depth_model)
 
-        torch.save(self.state_dict(), '/home/docker_rctrans/RCTrans/res50_with_baselssfpn.pth')
+        # torch.save(self.state_dict(), '/home/docker_rctrans/RCTrans/res50_with_baselssfpn.pth')
 
 
     def extract_img_feat(self, img, len_queue=1, training_mode=False):
@@ -409,6 +409,9 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         #             print(key, len(value), len(value[0]), value[0][0].shape)
         #         except:
         #             continue
+
+        state_dict = torch.load('/home/docker_rctrans/')
+
         if return_loss:
             for key in ['gt_bboxes_3d', 'gt_labels_3d', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'img_metas']:
                 data[key] = list(zip(*data[key]))
@@ -453,12 +456,12 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
             self.pts_bbox_head.reset_memory()
             self.test_flag = False
 
-        outs_depth = self.radar_depth_model.forward_train(data)
+        # outs_depth = self.radar_depth_model.forward_train(data)
 
-        external_depth, _ =  outs_depth
+        # external_depth, _ =  outs_depth
         B, S, N, C, H, W = data['img'].shape
-        external_depth = external_depth[-1][:,:, :H,:W]
-        external_depth = rearrange(external_depth, '(b n) c h w -> b 1 n c h w', b=B)
+        # external_depth = external_depth[-1][:,:, :H,:W]
+        # external_depth = rearrange(external_depth, '(b n) c h w -> b 1 n c h w', b=B)
 
         T = data['img'].size(1)
         prev_img = data['img'][:, :-self.num_frame_backbone_grads]
