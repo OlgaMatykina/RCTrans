@@ -12,3 +12,4 @@ from .radar_encoder import RadarFeatureNet
 from .vit import ViT
 from .matrixvt_slim import MatrixVT
 from .sparse_beats_dense import SBD
+from .base_lss_fpn import BaseLSSFPN

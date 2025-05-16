@@ -29,7 +29,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 4
+batch_size = 1
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -58,12 +58,12 @@ model = dict(
     # img encoder
     img_backbone=dict(
         init_cfg=dict(
-            type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
+            type='Pretrained', checkpoint="ckpts/cascade_mask_rcnn_r50_fpn_coco-20e_20e_nuim_20201009_124951-40963960.pth",
             prefix='backbone.'),       
         type='ResNet',
-        depth=18,
+        depth=50,
         num_stages=4,
-        out_indices=(2, 3),
+        out_indices=(0, 1, 2, 3),
         frozen_stages=-1,
         norm_cfg=dict(type='BN2d', requires_grad=False),
         norm_eval=True,
@@ -71,7 +71,7 @@ model = dict(
         style='pytorch'),
     img_neck=dict(
         type='CPFPN',  ###remove unused parameters 
-        in_channels=[256, 512],
+        in_channels=[1024, 2048],
         out_channels=256,
         num_outs=2),
     img_roi_head=dict(
@@ -124,20 +124,39 @@ model = dict(
     ),
 
     depth_model=dict(
-        type='MatrixVT',
+        type='BaseLSSFPN',
         x_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
         y_bound=[-51.2, 51.2, 0.8],  # BEV grids bounds and size (m)
         z_bound=[-5, 3, 8],  # BEV grids bounds and size (m)
         d_bound=[2.0, 58.0, 0.5],  # Categorical Depth bounds and division (m)
         final_dim=(256, 704),  # img size for model input (pix)
-        output_channels=64,  # BEV feature channels
+        output_channels=80,  # BEV feature channels
         downsample_factor=16,  # ds factor of the feature to be projected to BEV (e.g. 256x704 -> 16x44)  # noqa
-        depth_net_conf=dict(in_channels=256, mid_channels=256),
-        loss_depth=dict(
-            type='DepthLoss',
-            dbound=[2.0, 58.0, 0.5],
-            downsample_factor=16,
-            loss_weight=3.0),
+        depth_net=dict(in_channels=512, mid_channels=512), 
+        depth_img_neck=dict(
+            type='SECONDFPN',
+            in_channels=[256, 512, 1024, 2048],
+            upsample_strides=[0.25, 0.5, 1, 2],
+            out_channels=[128, 128, 128, 128],
+        ),
+        # loss_depth=dict(
+        #     type='DepthLoss',
+        #     dbound=[2.0, 58.0, 0.5],
+        #     downsample_factor=16,
+        #     loss_weight=3.0),
+        img_backbone=dict(
+            init_cfg=dict(
+                type='Pretrained', checkpoint="ckpts/cascade_mask_rcnn_r50_fpn_coco-20e_20e_nuim_20201009_124951-40963960.pth",
+                prefix='backbone.'),       
+            type='ResNet',
+            depth=50,
+            num_stages=4,
+            out_indices=(0, 1, 2, 3),
+            frozen_stages=-1,
+            norm_cfg=dict(type='BN2d', requires_grad=False),
+            norm_eval=True,
+            with_cp=True,
+            style='pytorch'),
     ),
 
     # detect head
@@ -216,8 +235,8 @@ model = dict(
 
 
 dataset_type = 'CustomNuScenesDataset'
-data_root = '../HPR1/nuscenes/'
-ann_root = '../HPR1/'
+data_root = '../HPR3/nuscenes/'
+ann_root = '../HPR3/'
 file_client_args = dict(backend='disk')
 
 
@@ -232,6 +251,7 @@ ida_aug_conf = {
     }
 train_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+    dict(type='LoadMultiViewSegMaskFromFiles', semantic_mask_used_mask=[0, 1, 4, 12, 20, 32, 80, 83, 93, 127, 102, 116], to_float32=True),
     dict(
         type='LoadRadarPointsMultiSweeps',
         load_dim=18,
@@ -246,9 +266,10 @@ train_pipeline = [
         use_dim=lidar_use_dims,
     ),
     dict(type='GenerateLidarDepth'),
+    dict(type='GenerateRadarDepth'),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_bbox=True,
         with_label=True, with_bbox_depth=True),
-    dict(type='RadarRangeFilter', radar_range=bev_range),
+    dict(type='RadarRangeFilter', radar_range=bev_range, max_num=2048),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
     dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=True),
@@ -263,11 +284,50 @@ train_pipeline = [
     dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='PETRFormatBundle3D', class_names=class_names, collect_keys=collect_keys + ['prev_exists']),
     dict(type='MyTransform',),
-    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists', 'lidar', 'depth_maps'] + collect_keys,
+    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists', 'lidar', 'depth_maps', 'radar_depth', 'seg_mask', 'num_points'] + collect_keys,
+             meta_keys=('filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token', 'gt_bboxes_3d','gt_labels_3d','lidar2img','radar_aug_matrix', 'pcd_scale_factor'))
+]
+val_pipeline = [
+    dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+    dict(type='LoadMultiViewSegMaskFromFiles', semantic_mask_used_mask=[0, 1, 4, 12, 20, 32, 80, 83, 93, 127, 102, 116], to_float32=True),
+    dict(
+        type='LoadRadarPointsMultiSweeps',
+        load_dim=18,
+        sweeps_num=6,
+        use_num=6,
+        use_dim=radar_use_dims,
+        max_num=2048),
+    dict(
+        type='LoadLidarPointsFromFile',
+        coord_type='LIDAR',
+        load_dim=5,
+        use_dim=lidar_use_dims,
+    ),
+    dict(type='GenerateLidarDepth'),
+    dict(type='GenerateRadarDepth'),
+    dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_bbox=True,
+        with_label=True, with_bbox_depth=True),
+    dict(type='RadarRangeFilter', radar_range=bev_range, max_num=2048),
+    dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
+    dict(type='ObjectNameFilter', classes=class_names),
+    dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=True),
+    dict(type='GlobalRotScaleTransImage',
+            rot_range=[-0.3925, 0.3925],
+            translation_std=[0, 0, 0],
+            scale_ratio_range=[0.95, 1.05],
+            reverse_angle=True,
+            training=True,
+            ),
+    dict(type='NormalizeMultiviewImage', **img_norm_cfg),
+    dict(type='PadMultiViewImage', size_divisor=32),
+    dict(type='PETRFormatBundle3D', class_names=class_names, collect_keys=collect_keys + ['prev_exists']),
+    dict(type='MyTransform',),
+    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists', 'lidar', 'depth_maps', 'radar_depth', 'seg_mask', 'num_points'] + collect_keys,
              meta_keys=('filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token', 'gt_bboxes_3d','gt_labels_3d','lidar2img','radar_aug_matrix', 'pcd_scale_factor'))
 ]
 test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
+    dict(type='LoadMultiViewSegMaskFromFiles', semantic_mask_used_mask=[0, 1, 4, 12, 20, 32, 80, 83, 93, 127, 102, 116], to_float32=True),
     dict(
         type='LoadRadarPointsMultiSweeps',
         load_dim=18,
@@ -283,8 +343,9 @@ test_pipeline = [
         use_dim=lidar_use_dims,
     ),
     dict(type='GenerateLidarDepth'),
+    dict(type='GenerateRadarDepth'),
 
-    dict(type='RadarRangeFilter', radar_range=bev_range),
+    dict(type='RadarRangeFilter', radar_range=bev_range, max_num=2048),
     dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False, with_depth=True),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='PadMultiViewImage', size_divisor=32, training=True),
@@ -300,7 +361,7 @@ test_pipeline = [
                 class_names=class_names,
                 with_label=False),
             dict(type='MyTransform', training=True),
-            dict(type='Collect3D', keys=['img','radar', 'lidar', 'depth_maps'] + collect_keys,
+            dict(type='Collect3D', keys=['img','radar', 'lidar', 'depth_maps', 'radar_depth', 'num_points', 'seg_mask'] + collect_keys,
             meta_keys=('filename', 'ori_shape', 'img_shape','pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token','lidar2img'))
         ]), 
 ]
@@ -311,7 +372,7 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
+        ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_train.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training
@@ -325,9 +386,9 @@ data = dict(
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
     val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas',], 
-            queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, test_mode=True, seq_mode=True,),
+            queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, test_mode=True, seq_mode=True,),
     test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas', ], 
-            queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+            queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
@@ -361,7 +422,7 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 checkpoint_config = dict(interval=10001, max_keep_ckpts=3)
 runner = dict(
     type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
-load_from=None
+load_from='ckpts/res50.pth'
 # resume_from='work_dirs/rctrans_gt_depth/iter_40004.pth'
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]

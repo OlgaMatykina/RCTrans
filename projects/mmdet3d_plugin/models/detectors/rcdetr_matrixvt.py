@@ -62,7 +62,7 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
                  radar_neck=None,
                  depth_loss=None,
                  depth_model=None,
-                 radar_depth_model=None,
+                #  radar_depth_model=None,
                  ):
         super(RCDETR_MatrixVT, self).__init__(pts_voxel_layer, pts_voxel_encoder,
                              pts_middle_encoder, pts_fusion_layer,
@@ -129,7 +129,9 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
 
         # self.depth_model = MatrixVT(**backbone_conf).cuda()
         self.depth_model = builder.build_backbone(depth_model)
-        self.radar_depth_model = builder.build_backbone(radar_depth_model)
+        # self.radar_depth_model = builder.build_backbone(radar_depth_model)
+
+        torch.save(self.state_dict(), '/home/docker_rctrans/RCTrans/res50_with_baselssfpn.pth')
 
 
     def extract_img_feat(self, img, len_queue=1, training_mode=False):
@@ -179,7 +181,7 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
 
         return img_feats_reshaped
     
-    def img_feats_to_bev(self, img_feats, ida_mat, intrinsics, sensor2ego, external_depth):
+    def img_feats_to_bev(self, img_feats, ida_mat, intrinsics, sensor2ego, external_depth, data):
         if img_feats.dim() == 5:
             new_img_feats = img_feats.unsqueeze(dim=1)
             # sensor2ego = sensor2ego.unsqueeze(dim=1)
@@ -206,14 +208,13 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         # model.static_mat = model.get_proj_mat(mats_dict)
 
         bev_feature, depth = self.depth_model(
-            new_img_feats, {
+            data['img'], {
                 'sensor2ego_mats': sensor2ego,
                 'intrin_mats': intrinsics,
                 'ida_mats': ida_mat,
                 # 'sensor2sensor_mats': torch.rand((1, 1, 6, 4, 4)),
                 'bda_mat': torch.eye(4).unsqueeze(0).repeat(new_img_feats.shape[0], 1, 1).to(intrinsics.device),
             },
-            external_depth,
             is_return_depth=True)
 
         # print('BEV SHAPE', bev_feature.shape, 'DEPTH SHAPE', depth.shape)
@@ -473,13 +474,13 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
 
         rec_radar = data['radar']
         rec_img_feats, rec_radar_feats = self.extract_feat(rec_img, rec_radar, self.num_frame_backbone_grads)
-        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego, external_depth)
+        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego, external_depth, **data)
         
         if T-self.num_frame_backbone_grads > 0:
             self.eval()
             with torch.no_grad():
                 prev_img_feats = self.extract_feat(prev_img, None, T-self.num_frame_backbone_grads, True)
-                prev_bev_feats, depth = self.img_feats_to_bev(prev_img_feats, prev_ida_mat, prev_intrinsics, prev_sensor2ego, external_depth)
+                prev_bev_feats, depth = self.img_feats_to_bev(prev_img_feats, prev_ida_mat, prev_intrinsics, prev_sensor2ego, external_depth, **data)
 
             self.train()
             data['img_feats'] = torch.cat([prev_img_feats, rec_img_feats], dim=1)

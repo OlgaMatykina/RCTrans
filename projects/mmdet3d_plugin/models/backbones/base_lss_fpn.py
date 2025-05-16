@@ -8,6 +8,8 @@ from mmdet.models.backbones.resnet import BasicBlock
 from torch import nn
 from torch.cuda.amp.autocast_mode import autocast
 
+from matplotlib import pyplot as plt
+
 try:
     from projects.mmdet3d_plugin.models.utils.voxel_pooling_inference import voxel_pooling_inference
     from projects.mmdet3d_plugin.models.utils.voxel_pooling_train  import voxel_pooling_train
@@ -330,9 +332,9 @@ class BaseLSSFPN(nn.Module):
                  final_dim,
                  downsample_factor,
                  output_channels,
-                 img_backbone_conf,
-                 img_neck_conf,
-                 depth_net_conf,
+                 depth_img_neck,
+                 img_backbone,
+                 depth_net,
                  use_da=False):
         """Modified from `https://github.com/nv-tlabs/lift-splat-shoot`.
 
@@ -372,9 +374,9 @@ class BaseLSSFPN(nn.Module):
         self.register_buffer('frustum', self.create_frustum())
         self.depth_channels, _, _, _ = self.frustum.shape
 
-        self.img_backbone = build_backbone(img_backbone_conf)
-        self.img_neck = build_neck(img_neck_conf)
-        self.depth_net = self._configure_depth_net(depth_net_conf)
+        self.img_backbone = build_backbone(img_backbone)
+        self.img_neck = build_neck(depth_img_neck)
+        self.depth_net = self._configure_depth_net(depth_net)
 
         self.img_neck.init_weights()
         self.img_backbone.init_weights()
@@ -523,6 +525,28 @@ class BaseLSSFPN(nn.Module):
         )
         depth = depth_feature[:, :self.depth_channels].softmax(
             dim=1, dtype=depth_feature.dtype)
+
+
+        print('depth', depth.shape)
+        depth_bins = torch.linspace(2, 58, steps=112)
+        depth_indices = depth.argmax(dim=1)  # (6, 16, 44) — индексы в диапазоне [0, 111]
+        depth_map = depth_bins[depth_indices]  # (6, 16, 44) — в метрах
+        # print((depth_indices > 0).any())
+        features = depth_map.squeeze().cpu().numpy()
+        fig, axs = plt.subplots(3, 2, figsize=(8, 8))
+        for i in range(3):
+            for j in range(2):
+                index = i * 2 + j
+                if index < features.shape[0]:
+                    ax = axs[i, j]
+                    ax.imshow(features[index], cmap='hot', interpolation='nearest')
+                    ax.axis('off')  # Отключаем оси
+
+        # Настроим отступы и сохраняем изображение
+        plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        plt.savefig('depth_bevdepth.png', dpi=300)
+        plt.show()
+
         geom_xyz = self.get_geometry(
             mats_dict['sensor2ego_mats'][:, sweep_index, ...],
             mats_dict['intrin_mats'][:, sweep_index, ...],
@@ -557,6 +581,30 @@ class BaseLSSFPN(nn.Module):
                 geom_xyz, depth, depth_feature[:, self.depth_channels:(
                     self.depth_channels + self.output_channels)].contiguous(),
                 self.voxel_num.cuda())
+
+        print('feature_map', feature_map.shape)
+
+        features = feature_map.squeeze().cpu().numpy()  # Замените на ваши данные
+
+        # Размер итогового изображения
+        grid_size = 5
+        fig, axs = plt.subplots(grid_size, grid_size, figsize=(8, 8))
+
+        # Итерируем по всем feature maps
+        for i in range(grid_size):
+            for j in range(grid_size):
+                index = i * grid_size + j
+                if index < features.shape[0]:
+                    ax = axs[i, j]
+                    ax.imshow(features[index], cmap='hot', interpolation='nearest')
+                    ax.axis('off')  # Отключаем оси
+
+        # Настроим отступы и сохраняем изображение
+        plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        plt.savefig('bev_bevdepth.png', dpi=300)
+        plt.show()
+        
+
         if is_return_depth:
             # final_depth has to be fp32, otherwise the depth
             # loss will colapse during the traing process.
@@ -567,7 +615,6 @@ class BaseLSSFPN(nn.Module):
     def forward(self,
                 sweep_imgs,
                 mats_dict,
-                gt_depth,
                 timestamps=None,
                 is_return_depth=False):
         """Forward function.
@@ -601,7 +648,6 @@ class BaseLSSFPN(nn.Module):
             0,
             sweep_imgs[:, 0:1, ...],
             mats_dict,
-            gt_depth,
             is_return_depth=is_return_depth)
         if num_sweeps == 1:
             return key_frame_res
@@ -616,7 +662,6 @@ class BaseLSSFPN(nn.Module):
                     sweep_index,
                     sweep_imgs[:, sweep_index:sweep_index + 1, ...],
                     mats_dict,
-                    gt_depth,
                     is_return_depth=False)
                 ret_feature_list.append(feature_map)
 
