@@ -171,7 +171,6 @@ class ResizeCropFlipRotImage():
 
         resize, resize_dims, crop, flip, rotate = self._sample_augmentation()
 
-
         for i in range(N):
             img = Image.fromarray(np.uint8(imgs[i]))
             if self.with_depth:
@@ -244,10 +243,11 @@ class ResizeCropFlipRotImage():
                 new_seg_masks.append(np.array(seg_mask).astype(np.float32))
 
 
-            ida_mat_ext = torch.eye(4, dtype=ida_mat.dtype, device=ida_mat.device)  # Создаем 4x4 единичную матрицу
-            ida_mat_ext[:3, :3] = ida_mat
-            ida_mats.append(np.array(ida_mat_ext).astype(np.float32))  # Сохраняем матрицу ida_mat
-            results['intrinsics'][i][:3, :3] = ida_mat @ results['intrinsics'][i][:3, :3]
+            ida_mat_ext = torch.eye(4, dtype=ida_mat.dtype, device=ida_mat.device)
+            ida_mat_ext[:2, :2] = ida_mat[:2, :2]  # rotation/scale
+            ida_mat_ext[:2, 3] = ida_mat[:2, 2]   # translation
+            ida_mats.append(np.array(ida_mat_ext).astype(np.float32))
+            # results['intrinsics'][i][:3, :3] = ida_mat @ results['intrinsics'][i][:3, :3]
         results['gt_bboxes'] = new_gt_bboxes
         results['centers2d'] = new_centers2d
         results['gt_labels'] = new_gt_labels

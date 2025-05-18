@@ -60,7 +60,7 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
                  radar_dense_encoder=None,
                  radar_backbone=None,
                  radar_neck=None,
-                 depth_loss=None,
+                 loss_depth=None,
                  depth_model=None,
                 #  radar_depth_model=None,
                  ):
@@ -103,10 +103,10 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         else:
             self.radar_neck = None
 
-        # if depth_loss is not None:
-        #     self.depth_loss = build_loss(depth_loss)
-        # else:
-        #     self.depth_loss = None
+        if loss_depth is not None:
+            self.loss_depth = builder.build_loss(loss_depth)
+        else:
+            self.loss_depth = None
 
         self.downsample_factor = 16
         self.dbound = [2.0, 58.0, 0.5]
@@ -181,7 +181,7 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
 
         return img_feats_reshaped
     
-    def img_feats_to_bev(self, img_feats, ida_mat, intrinsics, sensor2ego, external_depth, data):
+    def img_feats_to_bev(self, img_feats, ida_mat, intrinsics, sensor2ego, sweep_imgs):
         if img_feats.dim() == 5:
             new_img_feats = img_feats.unsqueeze(dim=1)
             # sensor2ego = sensor2ego.unsqueeze(dim=1)
@@ -206,9 +206,31 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         
         # for inference and deployment where intrin & extrin mats are static
         # model.static_mat = model.get_proj_mat(mats_dict)
+        # import cv2
+        # import numpy as np
+        # def denormalize_and_save(img, path, mean, std, to_rgb=True):
+        #     # Денормализация: (img * std + mean)
+        #     img = img.copy()
+        #     for c in range(3):
+        #         img[c] = img[c] * std[c] + mean[c]
+        #     # Преобразуем (C, H, W) → (H, W, C)
+        #     img = img.transpose(1, 2, 0)
+        #     # При необходимости конвертируем из RGB в BGR (OpenCV по умолчанию BGR)
+        #     if to_rgb:
+        #         img = img[..., ::-1]  # RGB → BGR
+        #     # Обрезаем значения и приводим к uint8
+        #     img = np.clip(img, 0, 255).astype(np.uint8)
+        #     # Сохраняем
+        #     cv2.imwrite(path, img)
+        
+        # mean = [123.675, 116.28, 103.53]
+        # std = [58.395, 57.12, 57.375]
 
+        # for i in range(6):            
+        #     tmp = data['img'].squeeze()[i].squeeze().detach().cpu().numpy()        
+        #     denormalize_and_save(tmp, f"img{i}.png", mean, std, to_rgb=True)
         bev_feature, depth = self.depth_model(
-            data['img'], {
+            sweep_imgs, {
                 'sensor2ego_mats': sensor2ego,
                 'intrin_mats': intrinsics,
                 'ida_mats': ida_mat,
@@ -314,9 +336,9 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
                                         gt_labels_3d[i], gt_bboxes[i],
                                         gt_labels[i], img_metas[i], centers2d[i], depths[i], requires_grad=requires_grad,return_losses=return_losses,**data_t)
 
-            # depth_loss = self.loss_depth(data['depth_maps'], data['depth_preds'])
+            depth_loss = self.loss_depth(data['depth_maps'], data['depth_preds'])
             # depth_loss = self.depth_model.loss(data['depth_maps'], data['depth_preds'])
-            # losses['frame_'+str(i)+'_depth_loss'] = depth_loss
+            losses['frame_'+str(i)+'_depth_loss'] = depth_loss
             if loss is not None:
                 for key, value in loss.items():
                     losses['frame_'+str(i)+"_"+key] = value
@@ -373,7 +395,7 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         else:
             outs_roi = self.forward_roi_head(return_losses, location, **data)
             topk_indexes = outs_roi['topk_indexes']
-            outs_depth = self.radar_depth_model.forward_train(data)
+            # outs_depth = self.radar_depth_model.forward_train(data)
             outs = self.pts_bbox_head(location, img_metas, topk_indexes, **data)
 
         if return_losses:
@@ -383,9 +405,9 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
                 loss2d_inputs = [gt_bboxes, gt_labels, centers2d, depths, outs_roi, img_metas]
                 losses2d = self.img_roi_head.loss(*loss2d_inputs)
                 losses.update(losses2d)
-            depth_loss = self.radar_depth_model.loss(outs_depth, data)
-            depth_loss = {'depth_loss': depth_loss}
-            losses.update(depth_loss)
+            # depth_loss = self.radar_depth_model.loss(outs_depth, data)
+            # depth_loss = {'depth_loss': depth_loss}
+            # losses.update(depth_loss)
 
             return losses
         else:
@@ -410,7 +432,7 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         #         except:
         #             continue
 
-        state_dict = torch.load('/home/docker_rctrans/')
+        # state_dict = torch.load('/home/docker_rctrans/RCTrans/ckpts/res50_with_pretrained_baselssfpn.pth')
 
         if return_loss:
             for key in ['gt_bboxes_3d', 'gt_labels_3d', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'img_metas']:
@@ -477,13 +499,13 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
 
         rec_radar = data['radar']
         rec_img_feats, rec_radar_feats = self.extract_feat(rec_img, rec_radar, self.num_frame_backbone_grads)
-        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego, external_depth, **data)
+        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego, rec_img)
         
         if T-self.num_frame_backbone_grads > 0:
             self.eval()
             with torch.no_grad():
                 prev_img_feats = self.extract_feat(prev_img, None, T-self.num_frame_backbone_grads, True)
-                prev_bev_feats, depth = self.img_feats_to_bev(prev_img_feats, prev_ida_mat, prev_intrinsics, prev_sensor2ego, external_depth, **data)
+                prev_bev_feats, depth = self.img_feats_to_bev(prev_img_feats, prev_ida_mat, prev_intrinsics, prev_sensor2ego, prev_img)
 
             self.train()
             data['img_feats'] = torch.cat([prev_img_feats, rec_img_feats], dim=1)
@@ -577,54 +599,54 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         # gt_depths = self.get_downsampled_gt_depth(gt_depths)
         # # print('GT DEPTH DOWNSAMPLED SHAPE', gt_depths.shape)
 
-        outs_depth = self.radar_depth_model.forward_test(data["img"], data['radar_depth'], data['radar'], data['num_points'])
+        # outs_depth = self.radar_depth_model.forward_test(data["img"], data['radar_depth'], data['radar'], data['num_points'])
 
-        external_depth, _ =  outs_depth
-        print('external_depth', external_depth.shape)
-        features = external_depth.squeeze().cpu().numpy()
-        fig, axs = plt.subplots(3, 2, figsize=(8, 8))
-        for i in range(3):
-            for j in range(2):
-                index = i * 2 + j
-                if index < features.shape[0]:
-                    ax = axs[i, j]
-                    ax.imshow(features[index], cmap='hot', interpolation='nearest')
-                    ax.axis('off')  # Отключаем оси
+        # external_depth, _ =  outs_depth
+        # print('external_depth', external_depth.shape)
+        # features = external_depth.squeeze().cpu().numpy()
+        # fig, axs = plt.subplots(3, 2, figsize=(8, 8))
+        # for i in range(3):
+        #     for j in range(2):
+        #         index = i * 2 + j
+        #         if index < features.shape[0]:
+        #             ax = axs[i, j]
+        #             ax.imshow(features[index], cmap='hot', interpolation='nearest')
+        #             ax.axis('off')  # Отключаем оси
 
-        # Настроим отступы и сохраняем изображение
-        plt.subplots_adjust(wspace=0.1, hspace=0.1)
-        plt.savefig('external_depth.png', dpi=300)
-        plt.show()
+        # # Настроим отступы и сохраняем изображение
+        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        # plt.savefig('external_depth.png', dpi=300)
+        # plt.show()
 
 
         B, N, C, H, W = data['img'].shape
         # external_depth = external_depth[-1][:,:, :H,:W]
-        external_depth = rearrange(external_depth, '(b n) c h w -> b 1 n c h w', b=B)
+        # external_depth = rearrange(external_depth, '(b n) c h w -> b 1 n c h w', b=B)
 
         rec_img_feats, rec_radar_feats = self.extract_feat(data['img'], data['radar'], 1)
-        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego, external_depth)
+        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego, data['img'].unsqueeze(0).unsqueeze(0))
         
-        print('depth', depth.shape)
-        depth_bins = torch.linspace(2, 58, steps=112)  # реальные значения глубины, если нужно
-        # Найти индекс глубины с максимальной активностью
-        depth_indices = depth.argmax(dim=1)  # (6, 16, 44) — индексы в диапазоне [0, 111]
-        # Если нужны реальные значения глубины (в метрах), а не индексы:
-        depth_map = depth_bins[depth_indices]  # (6, 16, 44) — в метрах
-        print((depth_indices > 0).any())
-        features = depth_map.squeeze().cpu().numpy()
-        fig, axs = plt.subplots(3, 2, figsize=(8, 8))
-        for i in range(3):
-            for j in range(2):
-                index = i * 2 + j
-                if index < features.shape[0]:
-                    ax = axs[i, j]
-                    ax.imshow(features[index], cmap='hot', interpolation='nearest')
-                    ax.axis('off')  # Отключаем оси
+        # print('depth', depth.shape)
+        # depth_bins = torch.linspace(2, 58, steps=112)  # реальные значения глубины, если нужно
+        # # Найти индекс глубины с максимальной активностью
+        # depth_indices = depth.argmax(dim=1)  # (6, 16, 44) — индексы в диапазоне [0, 111]
+        # # Если нужны реальные значения глубины (в метрах), а не индексы:
+        # depth_map = depth_bins[depth_indices]  # (6, 16, 44) — в метрах
+        # # print((depth_indices > 0).any())
+        # features = depth_map.squeeze().cpu().numpy()
+        # fig, axs = plt.subplots(3, 2, figsize=(8, 8))
+        # for i in range(3):
+        #     for j in range(2):
+        #         index = i * 2 + j
+        #         if index < features.shape[0]:
+        #             ax = axs[i, j]
+        #             ax.imshow(features[index], cmap='hot', interpolation='nearest')
+        #             ax.axis('off')  # Отключаем оси
 
-        # Настроим отступы и сохраняем изображение
-        plt.subplots_adjust(wspace=0.1, hspace=0.1)
-        plt.savefig('depth.png', dpi=300)
-        plt.show()
+        # # Настроим отступы и сохраняем изображение
+        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        # plt.savefig('depth.png', dpi=300)
+        # plt.show()
 
         data['img_feats'] = rec_img_feats.squeeze(1)
         data['radar_feats'] = rec_radar_feats

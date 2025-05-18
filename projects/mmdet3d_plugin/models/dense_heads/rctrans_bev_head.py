@@ -76,6 +76,7 @@ class RCTransBEVHead(AnchorFreeHead):
                  num_classes,
                  in_channels_img=256,
                  in_channels_radar=64,
+                 in_channels_bev=80,
                  in_channels=256,
                  stride=16,
                  embed_dims=256,
@@ -177,6 +178,7 @@ class RCTransBEVHead(AnchorFreeHead):
         self.num_classes = num_classes
         self.in_channels_img = in_channels_img
         self.in_channels_radar = in_channels_radar
+        self.in_channels_bev = in_channels_bev
         self.memory_len = memory_len
         self.topk_proposals = topk_proposals
         self.num_propagated = num_propagated
@@ -284,7 +286,7 @@ class RCTransBEVHead(AnchorFreeHead):
         
         self.memory_embed_img_bev = nn.Sequential(
                 # nn.Linear(self.in_channels_img, self.embed_dims),
-                nn.Conv2d(self.in_channels_radar, self.embed_dims, 3, padding=1),
+                nn.Conv2d(self.in_channels_bev, self.embed_dims, 3, padding=1),
                 nn.ReLU(),
                 nn.Conv2d(self.embed_dims, self.embed_dims, 3, padding=1),
 

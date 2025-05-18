@@ -1,3 +1,5 @@
 from .petr_transformer import PETRMultiheadAttention, PETRTransformerEncoder, PETRTemporalTransformer, PETRTemporalDecoderLayer, PETRMultiheadFlashAttention
 from .detr3d_transformer import DeformableFeatureAggregationCuda, Detr3DTransformer, Detr3DTransformerDecoder, Detr3DTemporalDecoderLayer
 from .rctrans_transformer import RCTransTransformerDecoder, RCTransTemporalTransformer
+from .voxel_pooling_inference import voxel_pooling_inference
+from .voxel_pooling_train import voxel_pooling_train

@@ -214,18 +214,18 @@ class DepthNet(nn.Module):
 
     def forward(self, x, mats_dict):
         intrins = mats_dict['intrin_mats'][:, 0:1, ..., :3, :3]
-        print('intrins shape', intrins.shape)
+        # print('intrins shape', intrins.shape)
         batch_size = intrins.shape[0]
         num_cams = intrins.shape[2]
         ida = mats_dict['ida_mats'][:, 0:1, ...]
-        print('ida shape', ida.shape)
+        # print('ida shape', ida.shape)
 
         sensor2ego = mats_dict['sensor2ego_mats'][:, 0:1, ..., :3, :]
-        print('sensor2ego shape', sensor2ego.shape)
+        # print('sensor2ego shape', sensor2ego.shape)
 
         bda = mats_dict['bda_mat'].view(batch_size, 1, 1, 4,
                                         4).repeat(1, 1, num_cams, 1, 1)
-        print('bda shape', bda.shape)
+        # print('bda shape', bda.shape)
         
         mlp_input = torch.cat(
             [
@@ -332,7 +332,7 @@ class BaseLSSFPN(nn.Module):
                  final_dim,
                  downsample_factor,
                  output_channels,
-                 depth_img_neck,
+                 img_neck,
                  img_backbone,
                  depth_net,
                  use_da=False):
@@ -375,7 +375,7 @@ class BaseLSSFPN(nn.Module):
         self.depth_channels, _, _, _ = self.frustum.shape
 
         self.img_backbone = build_backbone(img_backbone)
-        self.img_neck = build_neck(depth_img_neck)
+        self.img_neck = build_neck(img_neck)
         self.depth_net = self._configure_depth_net(depth_net)
 
         self.img_neck.init_weights()
@@ -470,11 +470,37 @@ class BaseLSSFPN(nn.Module):
 
     def get_cam_feats(self, imgs):
         """Get feature maps from images."""
-        batch_size, num_sweeps, num_cams, num_channels, imH, imW = imgs.shape
+        batch_size, num_sweeps, num_cams, num_channels, imH, imW = imgs.shape 
 
         imgs = imgs.flatten().view(batch_size * num_sweeps * num_cams,
                                    num_channels, imH, imW)
+        # imgs = imgs[:, [2, 1, 0], :, :]
+        # res50_feats = self.img_backbone(imgs)
         img_feats = self.img_neck(self.img_backbone(imgs))[0]
+        # import cv2
+        # import numpy as np
+        # def denormalize_and_save(img, path, mean, std, to_bgr=False):
+        #     # Денормализация: (img * std + mean)
+        #     img = img.copy()
+        #     for c in range(3):
+        #         img[c] = img[c] * std[c] + mean[c]
+        #     # Преобразуем (C, H, W) → (H, W, C)
+        #     img = img.transpose(1, 2, 0)
+        #     # При необходимости конвертируем из RGB в BGR (OpenCV по умолчанию BGR)
+        #     if to_bgr:
+        #         img = img[..., ::-1]  # RGB → BGR
+        #     # Обрезаем значения и приводим к uint8
+        #     img = np.clip(img, 0, 255).astype(np.uint8)
+        #     # Сохраняем
+        #     cv2.imwrite(path, img)
+        
+        # mean = [123.675, 116.28, 103.53]
+        # std = [58.395, 57.12, 57.375]
+
+        # for i in range(6):            
+        #     tmp = imgs[i].squeeze().detach().cpu().numpy()        
+        #     denormalize_and_save(tmp, f"img{i}.png", mean, std, to_bgr=True)
+
         img_feats = img_feats.reshape(batch_size, num_sweeps, num_cams,
                                       img_feats.shape[1], img_feats.shape[2],
                                       img_feats.shape[3])
@@ -523,29 +549,31 @@ class BaseLSSFPN(nn.Module):
                                     source_features.shape[4]),
             mats_dict,
         )
+        # print('mats_dict', mats_dict)
+        
         depth = depth_feature[:, :self.depth_channels].softmax(
             dim=1, dtype=depth_feature.dtype)
 
 
-        print('depth', depth.shape)
-        depth_bins = torch.linspace(2, 58, steps=112)
-        depth_indices = depth.argmax(dim=1)  # (6, 16, 44) — индексы в диапазоне [0, 111]
-        depth_map = depth_bins[depth_indices]  # (6, 16, 44) — в метрах
-        # print((depth_indices > 0).any())
-        features = depth_map.squeeze().cpu().numpy()
-        fig, axs = plt.subplots(3, 2, figsize=(8, 8))
-        for i in range(3):
-            for j in range(2):
-                index = i * 2 + j
-                if index < features.shape[0]:
-                    ax = axs[i, j]
-                    ax.imshow(features[index], cmap='hot', interpolation='nearest')
-                    ax.axis('off')  # Отключаем оси
+        # print('depth', depth.shape)
+        # depth_bins = torch.linspace(2, 58, steps=112)
+        # depth_indices = depth.argmax(dim=1)  # (6, 16, 44) — индексы в диапазоне [0, 111]
+        # depth_map = depth_bins[depth_indices]  # (6, 16, 44) — в метрах
+        # # print((depth_indices > 0).any())
+        # features = depth_map.squeeze().cpu().detach().numpy()
+        # fig, axs = plt.subplots(3, 2, figsize=(8, 8))
+        # for i in range(3):
+        #     for j in range(2):
+        #         index = i * 2 + j
+        #         if index < features.shape[0]:
+        #             ax = axs[i, j]
+        #             ax.imshow(features[index], cmap='hot', interpolation='nearest')
+        #             ax.axis('off')  # Отключаем оси
 
-        # Настроим отступы и сохраняем изображение
-        plt.subplots_adjust(wspace=0.1, hspace=0.1)
-        plt.savefig('depth_bevdepth.png', dpi=300)
-        plt.show()
+        # # Настроим отступы и сохраняем изображение
+        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        # plt.savefig('depth_rctrans.png', dpi=300)
+        # plt.show()
 
         geom_xyz = self.get_geometry(
             mats_dict['sensor2ego_mats'][:, sweep_index, ...],
@@ -582,27 +610,27 @@ class BaseLSSFPN(nn.Module):
                     self.depth_channels + self.output_channels)].contiguous(),
                 self.voxel_num.cuda())
 
-        print('feature_map', feature_map.shape)
+        # print('feature_map', feature_map.shape)
 
-        features = feature_map.squeeze().cpu().numpy()  # Замените на ваши данные
+        # features = feature_map.squeeze().cpu().detach().numpy()  # Замените на ваши данные
 
-        # Размер итогового изображения
-        grid_size = 5
-        fig, axs = plt.subplots(grid_size, grid_size, figsize=(8, 8))
+        # # Размер итогового изображения
+        # grid_size = 5
+        # fig, axs = plt.subplots(grid_size, grid_size, figsize=(8, 8))
 
-        # Итерируем по всем feature maps
-        for i in range(grid_size):
-            for j in range(grid_size):
-                index = i * grid_size + j
-                if index < features.shape[0]:
-                    ax = axs[i, j]
-                    ax.imshow(features[index], cmap='hot', interpolation='nearest')
-                    ax.axis('off')  # Отключаем оси
+        # # Итерируем по всем feature maps
+        # for i in range(grid_size):
+        #     for j in range(grid_size):
+        #         index = i * grid_size + j
+        #         if index < features.shape[0]:
+        #             ax = axs[i, j]
+        #             ax.imshow(features[index], cmap='hot', interpolation='nearest')
+        #             ax.axis('off')  # Отключаем оси
 
-        # Настроим отступы и сохраняем изображение
-        plt.subplots_adjust(wspace=0.1, hspace=0.1)
-        plt.savefig('bev_bevdepth.png', dpi=300)
-        plt.show()
+        # # Настроим отступы и сохраняем изображение
+        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
+        # plt.savefig('bev_rctrans.png', dpi=300)
+        # plt.show()
         
 
         if is_return_depth:

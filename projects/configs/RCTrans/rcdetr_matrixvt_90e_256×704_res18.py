@@ -20,7 +20,7 @@ out_size_factor = 4
 mem_query = 128
 
 img_norm_cfg = dict(
-    mean=[123.675, 116.28, 103.53], std=[58.395, 57.12, 57.375], to_rgb=True)
+    mean=[123.675, 103.53, 116.28], std=[58.395, 57.375, 57.12], to_rgb=True)
 # For nuScenes we usually do 10-class detection
 class_names = [
     'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
@@ -29,7 +29,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 1
+batch_size = 2
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -58,12 +58,12 @@ model = dict(
     # img encoder
     img_backbone=dict(
         init_cfg=dict(
-            type='Pretrained', checkpoint="ckpts/cascade_mask_rcnn_r50_fpn_coco-20e_20e_nuim_20201009_124951-40963960.pth",
+            type='Pretrained', checkpoint="/home/docker_rctrans/RCTrans/ckpts/cascade_mask_rcnn_r50_fpn_coco-20e_20e_nuim_20201009_124951-40963960.pth",
             prefix='backbone.'),       
         type='ResNet',
         depth=50,
         num_stages=4,
-        out_indices=(0, 1, 2, 3),
+        out_indices=(2, 3),
         frozen_stages=-1,
         norm_cfg=dict(type='BN2d', requires_grad=False),
         norm_eval=True,
@@ -133,7 +133,7 @@ model = dict(
         output_channels=80,  # BEV feature channels
         downsample_factor=16,  # ds factor of the feature to be projected to BEV (e.g. 256x704 -> 16x44)  # noqa
         depth_net=dict(in_channels=512, mid_channels=512), 
-        depth_img_neck=dict(
+        img_neck=dict(
             type='SECONDFPN',
             in_channels=[256, 512, 1024, 2048],
             upsample_strides=[0.25, 0.5, 1, 2],
@@ -146,7 +146,7 @@ model = dict(
         #     loss_weight=3.0),
         img_backbone=dict(
             init_cfg=dict(
-                type='Pretrained', checkpoint="ckpts/cascade_mask_rcnn_r50_fpn_coco-20e_20e_nuim_20201009_124951-40963960.pth",
+                type='Pretrained', checkpoint="/home/docker_rctrans/RCTrans/ckpts/cascade_mask_rcnn_r50_fpn_coco-20e_20e_nuim_20201009_124951-40963960.pth",
                 prefix='backbone.'),       
             type='ResNet',
             depth=50,
@@ -158,6 +158,12 @@ model = dict(
             with_cp=True,
             style='pytorch'),
     ),
+    loss_depth=dict(
+        type='DepthLoss',
+        dbound=[2.0, 58.0, 0.5],
+        downsample_factor=16,
+        loss_weight=0.3
+    ),
 
     # detect head
     pts_bbox_head=dict(
@@ -165,6 +171,7 @@ model = dict(
         num_classes=10,
         in_channels_img=256,
         in_channels_radar=64,
+        in_channels_bev=80,
         num_query=900,
         memory_len= mem_query*4 , # 用来调节Memory Queue的长度
         topk_proposals=mem_query, # 每帧所要保存的query
@@ -235,8 +242,8 @@ model = dict(
 
 
 dataset_type = 'CustomNuScenesDataset'
-data_root = '../HPR3/nuscenes/'
-ann_root = '../HPR3/'
+data_root = '/home/docker_rctrans/HPR3/nuscenes/'
+ann_root = '/home/docker_rctrans/HPR3/'
 file_client_args = dict(backend='disk')
 
 
@@ -372,7 +379,7 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_train.pkl',
+        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training
@@ -386,16 +393,16 @@ data = dict(
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
     val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas',], 
-            queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, test_mode=True, seq_mode=True,),
+            queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, test_mode=True, seq_mode=True,),
     test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas', ], 
-            queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+            queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
 
 optimizer = dict(
     type='AdamW', 
-    lr=8e-5, # bs 32 gpu 1 || bs 4 gpu 1: 1e-5 # bs 8: 2e-4 || bs 16: 4e-4
+    lr=1e-5, # bs 32 gpu 1 || bs 4 gpu 1: 1e-5 # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -403,7 +410,7 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=8, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeOptimizerHook', cumulative_iters=16, grad_clip=dict(max_norm=35, norm_type=2))
 
 # learning policy
 lr_config = dict(
@@ -414,15 +421,21 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
+# evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
+evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater')
+
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
-checkpoint_config = dict(interval=10001, max_keep_ckpts=3)
-runner = dict(
-    type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
-load_from='ckpts/res50.pth'
+# checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
+checkpoint_config = dict(interval=1, max_keep_ckpts=3)
+
+# runner = dict(type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
+# runner = dict(type='IterBasedRunner', max_iters=1)
+runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
+# load_from='ckpts/res50.pth'
+load_from='/home/docker_rctrans/RCTrans/ckpts/res50_with_pretrained_baselssfpn.pth'
 # resume_from='work_dirs/rctrans_gt_depth/iter_40004.pth'
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
@@ -432,21 +445,21 @@ log_config = dict(
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(
-        #     type='WandbLoggerHook',
-        #     init_kwargs=dict(
-        #         project='radar-camera',   # Название проекта в WandB
-        #         name='lab_comp RCTrans training depth BEVDepth',     # Имя эксперимента
-        #         config=dict(                # Дополнительные настройки эксперимента
-        #             batch_size=batch_size,
-        #             model='rcdetr',
-        #         )
-        #     )
-        # ),
+        dict(
+            type='WandbLoggerHook',
+            init_kwargs=dict(
+                project='radar-camera',   # Название проекта в WandB
+                name='lab_comp BEVDepth + RCTrans with branch bev_img from pretrained on full',     # Имя эксперимента
+                config=dict(                # Дополнительные настройки эксперимента
+                    batch_size=batch_size,
+                    model='rcdetr',
+                )
+            )
+        ),
     ],
 )
 
-workflow = [('train', 1), ('val', 1)]
+workflow = [('train', 1)]
 
 '''
 mAP: 0.4741

@@ -83,12 +83,13 @@ class RCTransTransformerDecoder(TransformerLayerSequence):
 
         # print('NUM LAYERS', self.layers)
 
-        for index in range(int(len(self.layers))//2):
+        for index in range(int(len(self.layers))//3):
 
             query = self.layers[2*index](query, bev_key, bev_key, bev_query_pos, bev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
-            query = self.layers[2*index](query, imbev_key, imbev_key, bev_query_pos, imbev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
+            # query = self.layers[2*index](query, imbev_key, imbev_key, bev_query_pos, imbev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
             # print('FIRST LAYER SHAPES', query.shape, bev_key.shape, bev_key.shape, bev_query_pos.shape, bev_key_pos.shape, temp_memory.shape, bev_temp_pos.shape)
             query = self.layers[2*index + 1](query, rv_key, rv_key, rv_query_pos, rv_key_pos, temp_memory, rv_temp_pos, attn_masks) # [Nq, B, C]
+            query = self.layers[2*index + 2](query, imbev_key, imbev_key, bev_query_pos, imbev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
             # print('SECOND LAYER SHAPES', query.shape, rv_key.shape, rv_key.shape, rv_query_pos.shape, rv_key_pos.shape, temp_memory.shape, rv_temp_pos.shape)
             # print('ONLY LAYER SHAPE',
             #     query.shape, 
@@ -134,7 +135,7 @@ class RCTransTransformerDecoder(TransformerLayerSequence):
                 if not self.training:
                     return outputs_classes, outputs_coords, torch.stack(intermediate)
             # update query pos
-            if index < (int(len(self.layers)/2)-1):
+            if index < (int(len(self.layers)/3)-1):
                 reference_points = tmp[..., 0:3].clone()
                 bev_query_embeds, rv_query_embeds = query_embed(reference_points, img_metas)
                 bev_query_pos, rv_query_pos = temporal_alignment_pos(bev_query_embeds, rv_query_embeds, reference_points)
@@ -170,7 +171,7 @@ class RCTransTemporalTransformer(BaseModule):
             self.encoder = build_transformer_layer_sequence(encoder)
         else:
             self.encoder = None
-        # decoder['num_layers'] = decoder['num_layers']*2
+        decoder['num_layers'] = decoder['num_layers']*3
         self.decoder = build_transformer_layer_sequence(decoder)
         self.embed_dims = self.decoder.embed_dims
         self.cross = cross
