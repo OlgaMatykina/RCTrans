@@ -541,17 +541,20 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
   
   
     def forward_test(self, img_metas, rescale, **data):
-        self.test_flag = True
-        for var, name in [(img_metas, 'img_metas')]:
-            if not isinstance(var, list):
-                raise TypeError('{} must be a list, but got {}'.format(
-                    name, type(var)))
-        for key in data:
-            if key not in ['img', 'depth_maps', 'radar_depth', 'seg_mask']:
-                data[key] = data[key][0][0].unsqueeze(0)
-            else:
-                data[key] = data[key][0]
-        return self.simple_test(img_metas[0], **data)
+            self.test_flag = True
+            for var, name in [(img_metas, 'img_metas')]:
+                if not isinstance(var, list):
+                    raise TypeError('{} must be a list, but got {}'.format(
+                        name, type(var)))
+            for key in data:
+                if key not in ['img', 'depth_maps', 'radar_depth', 'seg_mask', 'radar', 'lidar']:
+                    if len(data[key][0])>1:
+                        data[key] = torch.stack(data[key][0], dim=0)
+                    else:
+                        data[key] = data[key][0][0]
+                else:
+                    data[key] = data[key][0]
+            return self.simple_test(img_metas[0], **data)
 
     def simple_test_pts(self, img_metas, **data):
         """Test function of point cloud branch."""
@@ -564,14 +567,13 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
             topk_indexes = None
         if img_metas[0]['scene_token'] != self.prev_scene_token:
             self.prev_scene_token = img_metas[0]['scene_token']
-            data['prev_exists'] = data['img'].new_zeros(1)
+            data['prev_exists'] = data['img'].new_zeros(len(img_metas))
             self.pts_bbox_head.reset_memory()
         else:
-            data['prev_exists'] = data['img'].new_ones(1)
+            data['prev_exists'] = data['img'].new_ones(len(img_metas))
 
         outs = self.pts_bbox_head(location, img_metas, topk_indexes, **data)
-        bbox_list = self.pts_bbox_head.get_bboxes(
-            outs, img_metas)
+        bbox_list = self.pts_bbox_head.get_bboxes(outs, img_metas)
         bbox_results = [
             bbox3d2result(bboxes, scores, labels)
             for bboxes, scores, labels in bbox_list
@@ -624,7 +626,7 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         # external_depth = rearrange(external_depth, '(b n) c h w -> b 1 n c h w', b=B)
 
         rec_img_feats, rec_radar_feats = self.extract_feat(data['img'], data['radar'], 1)
-        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego, data['img'].unsqueeze(0).unsqueeze(0))
+        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego, data['img'].unsqueeze(1))
         
         # print('depth', depth.shape)
         # depth_bins = torch.linspace(2, 58, steps=112)  # реальные значения глубины, если нужно

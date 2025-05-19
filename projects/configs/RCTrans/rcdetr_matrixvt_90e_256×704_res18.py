@@ -379,7 +379,7 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
+        ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_train.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training
@@ -395,7 +395,8 @@ data = dict(
     val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas',], 
             queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, test_mode=True, seq_mode=True,),
     test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas', ], 
-            queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+            queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality,
+            samples_per_gpu=2),
     shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
@@ -435,7 +436,8 @@ checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 # runner = dict(type='IterBasedRunner', max_iters=1)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
 # load_from='ckpts/res50.pth'
-load_from='/home/docker_rctrans/RCTrans/ckpts/res50_with_pretrained_baselssfpn.pth'
+# load_from='/home/docker_rctrans/RCTrans/ckpts/res50_with_pretrained_baselssfpn.pth'
+load_from=None
 # resume_from='work_dirs/rctrans_gt_depth/iter_40004.pth'
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
@@ -445,17 +447,17 @@ log_config = dict(
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        dict(
-            type='WandbLoggerHook',
-            init_kwargs=dict(
-                project='radar-camera',   # Название проекта в WandB
-                name='lab_comp BEVDepth + RCTrans with branch bev_img from pretrained on full',     # Имя эксперимента
-                config=dict(                # Дополнительные настройки эксперимента
-                    batch_size=batch_size,
-                    model='rcdetr',
-                )
-            )
-        ),
+        # dict(
+        #     type='WandbLoggerHook',
+        #     init_kwargs=dict(
+        #         project='radar-camera',   # Название проекта в WandB
+        #         name='lab_comp BEVDepth + RCTrans with branch bev_img from pretrained on full',     # Имя эксперимента
+        #         config=dict(                # Дополнительные настройки эксперимента
+        #             batch_size=batch_size,
+        #             model='rcdetr',
+        #         )
+        #     )
+        # ),
     ],
 )
 

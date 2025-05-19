@@ -85,11 +85,11 @@ class RCTransTransformerDecoder(TransformerLayerSequence):
 
         for index in range(int(len(self.layers))//3):
 
-            query = self.layers[2*index](query, bev_key, bev_key, bev_query_pos, bev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
+            query = self.layers[3*index](query, bev_key, bev_key, bev_query_pos, bev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
             # query = self.layers[2*index](query, imbev_key, imbev_key, bev_query_pos, imbev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
             # print('FIRST LAYER SHAPES', query.shape, bev_key.shape, bev_key.shape, bev_query_pos.shape, bev_key_pos.shape, temp_memory.shape, bev_temp_pos.shape)
-            query = self.layers[2*index + 1](query, rv_key, rv_key, rv_query_pos, rv_key_pos, temp_memory, rv_temp_pos, attn_masks) # [Nq, B, C]
-            query = self.layers[2*index + 2](query, imbev_key, imbev_key, bev_query_pos, imbev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
+            query = self.layers[3*index + 1](query, rv_key, rv_key, rv_query_pos, rv_key_pos, temp_memory, rv_temp_pos, attn_masks) # [Nq, B, C]
+            query = self.layers[3*index + 2](query, imbev_key, imbev_key, bev_query_pos, imbev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
             # print('SECOND LAYER SHAPES', query.shape, rv_key.shape, rv_key.shape, rv_query_pos.shape, rv_key_pos.shape, temp_memory.shape, rv_temp_pos.shape)
             # print('ONLY LAYER SHAPE',
             #     query.shape, 
