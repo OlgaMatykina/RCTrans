@@ -1,7 +1,8 @@
 FROM nvidia/cuda:11.1.1-devel-ubuntu20.04
 
 RUN DEBIAN_FRONTEND=noninteractive TZ=Europe/UTC apt-get update 
-RUN DEBIAN_FRONTEND=noninteractive TZ=Europe/UTC apt-get install gcc g++ make nvidia-cuda-toolkit -y
+# RUN DEBIAN_FRONTEND=noninteractive TZ=Europe/UTC apt-get install gcc g++ make nvidia-cuda-toolkit -y
+RUN apt-get install gcc g++ make -y
 
 # Установим нужные пакеты
 RUN apt-get update && apt-get install -y \
@@ -19,8 +20,8 @@ RUN apt-get update && apt-get install -y \
 
 # add user and his password
 ARG USER=docker_rctrans
-ARG UID=1001
-ARG GID=1001
+ARG UID=1002
+ARG GID=1002
 # default password
 ARG PW=user
 RUN id
@@ -65,7 +66,8 @@ RUN pip install ipython && \
     pip install pccm==0.3.4 && \
     pip install timm && \
     pip3 install wandb && \
-    pip install pytorch-lightning==1.6.0
+    pip install numpy==1.21.0
+    # pip install pytorch-lightning==1.6.0
 
-RUN pip install mmcv-full==1.7.0 && \
+RUN pip install mmcv-full==1.7.0 -f https://download.openmmlab.com/mmcv/dist/cu111/torch1.9.0/index.html && \
     pip install mmengine

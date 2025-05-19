@@ -169,7 +169,7 @@ def main():
     if args.launcher == 'none':
         distributed = False
     else:
-        distributed = False ## TEMPORARLY!!!!!!!!!
+        distributed = True
         init_dist(args.launcher, **cfg.dist_params)
         # re-set gpu_ids with distributed training mode
         _, world_size = get_dist_info()

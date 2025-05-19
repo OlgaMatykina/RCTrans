@@ -36,6 +36,11 @@ pip install ccimport==0.3.7
 pip install pccm==0.3.4
 pip install timm
 ```
+
+```
+python3 setup.py build_ext --inplace
+```
+
 ## Data Preparation
 ```
 python tools/create_data_nusc.py --root-path ./data/nuscenes --out-dir ./data --extra-tag nuscenes_radar --version v1.0
@@ -108,6 +113,7 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_matrixvt_90e_256×704_r
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_matrixvt_90e_256×704_res18.py 1 --work-dir work_dirs/rctrans_bevdepth_branch_bevimg_pretrained_on_full/
 
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_matrixvt_90e_256×704_res18.py 2 --work-dir work_dirs/rctrans_bevdepth_branch_bevimg_pretrained_on_full/
 
 ```
 Evaluation
@@ -133,6 +139,8 @@ bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×70
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py ckpts/res18.pth 1 --eval bbox
 
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_sbd_matrixvt_90e_256×704_res18.py work_dirs/rcdetr_sbd_matrixvt_imbev_branch_from_init_on_full/epoch23_sbd_pretrained.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_matrixvt_90e_256×704_res18.py work_dirs/rctrans_bevdepth_branch_bevimg_pretrained_on_full/epoch_1.pth 2 --eval bbox
 ```
 Tracking
 ```
