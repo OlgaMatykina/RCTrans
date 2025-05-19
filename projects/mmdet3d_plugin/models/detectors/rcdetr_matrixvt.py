@@ -426,7 +426,7 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         """
         # print('DATA KEYS', data.keys())
         # for key, value in data.items():
-        #     if key != 'rescale' and key != 'img':
+        #     if key != 'rescale':
         #         try:
         #             print(key, len(value), len(value[0]), value[0][0].shape)
         #         except:
@@ -547,8 +547,11 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
                 raise TypeError('{} must be a list, but got {}'.format(
                     name, type(var)))
         for key in data:
-            if key not in ['img', 'depth_maps', 'radar_depth', 'seg_mask']:
-                data[key] = data[key][0][0].unsqueeze(0)
+            if key not in ['img', 'depth_maps', 'radar_depth', 'seg_mask', 'radar', 'lidar', ]:
+                if len(data[key][0])>1:
+                    data[key] = torch.stack(data[key][0], dim=0)
+                else:
+                    data[key] = data[key][0][0]
             else:
                 data[key] = data[key][0]
         return self.simple_test(img_metas[0], **data)
@@ -564,10 +567,10 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
             topk_indexes = None
         if img_metas[0]['scene_token'] != self.prev_scene_token:
             self.prev_scene_token = img_metas[0]['scene_token']
-            data['prev_exists'] = data['img'].new_zeros(1)
+            data['prev_exists'] = data['img'].new_zeros(len(img_metas))
             self.pts_bbox_head.reset_memory()
         else:
-            data['prev_exists'] = data['img'].new_ones(1)
+            data['prev_exists'] = data['img'].new_ones(len(img_metas))
 
         outs = self.pts_bbox_head(location, img_metas, topk_indexes, **data)
         bbox_list = self.pts_bbox_head.get_bboxes(
@@ -585,6 +588,11 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         ida_mat = data['ida_mat']
         intrinsics = data['intrinsics']
         sensor2ego = data['sensor2ego']
+        # print('ida_mat', ida_mat.shape)
+        # print('intrinsics', intrinsics.shape)
+        # print('sensor2ego', sensor2ego.shape)
+        # print("data['img']", data['img'].shape)
+
 
         # gt_depths = data['depth_maps']
         # # print('depth_maps', type(gt_depths), len(gt_depths), type(gt_depths[0]), gt_depths[0].shape)
@@ -620,6 +628,7 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
 
 
         B, N, C, H, W = data['img'].shape
+        # print('B, N, C, H, W', B, N, C, H, W)
         # external_depth = external_depth[-1][:,:, :H,:W]
         # external_depth = rearrange(external_depth, '(b n) c h w -> b 1 n c h w', b=B)
 

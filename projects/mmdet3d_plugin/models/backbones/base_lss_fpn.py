@@ -203,7 +203,7 @@ class DepthNet(nn.Module):
                 kernel_size=3,
                 padding=1,
                 groups=4,
-                im2col_step=128,
+                im2col_step=32,
             )),
             nn.Conv2d(mid_channels,
                       depth_channels,
@@ -223,8 +223,7 @@ class DepthNet(nn.Module):
         sensor2ego = mats_dict['sensor2ego_mats'][:, 0:1, ..., :3, :]
         # print('sensor2ego shape', sensor2ego.shape)
 
-        bda = mats_dict['bda_mat'].view(batch_size, 1, 1, 4,
-                                        4).repeat(1, 1, num_cams, 1, 1)
+        bda = mats_dict['bda_mat'].view(batch_size, 1, 1, 4, 4).repeat(1, 1, num_cams, 1, 1)
         # print('bda shape', bda.shape)
         
         mlp_input = torch.cat(
@@ -669,8 +668,8 @@ class BaseLSSFPN(nn.Module):
         Return:
             Tensor: bev feature map.
         """
-        batch_size, num_sweeps, num_cams, num_channels, img_height, \
-            img_width = sweep_imgs.shape
+        # print('sweep_imgs.shape', sweep_imgs.shape)
+        batch_size, num_sweeps, num_cams, num_channels, img_height, img_width = sweep_imgs.shape
 
         key_frame_res = self._forward_single_sweep(
             0,
