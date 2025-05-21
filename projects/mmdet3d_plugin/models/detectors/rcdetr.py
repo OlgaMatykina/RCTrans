@@ -101,7 +101,7 @@ class RCDETR(MVXTwoStageDetector):
             if img.dim() == 6:
                 img = img.flatten(1, 2)
             if img.dim() == 5 and img.size(0) == 1:
-                img.squeeze_()
+                img.squeeze_(0)
             elif img.dim() == 5 and img.size(0) > 1:
                 B, N, C, H, W = img.size()
                 img = img.reshape(B * N, C, H, W)

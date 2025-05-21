@@ -18,6 +18,9 @@ from mmdet3d.core.bbox import (CameraInstance3DBoxes, DepthInstance3DBoxes,
 from mmdet3d.datasets import GlobalRotScaleTrans
 from typing import Any, Dict
 
+from nuscenes.nuscenes import NuScenes
+from pyquaternion import Quaternion
+
 @PIPELINES.register_module()
 class LoadRadarPointsMultiSweeps(object):
     """Load radar points from multiple sweeps.
@@ -549,3 +552,41 @@ class BEVFusionGlobalRotScaleTrans(GlobalRotScaleTrans):
             'radar_aug_matrix'] = radar_augs @ input_dict['radar_aug_matrix']
 
         return input_dict
+    
+
+@PIPELINES.register_module()
+class FilterAnnotationsBySensor:
+    def __init__(self, dataroot, version='v1.0-trainval', cam_name='CAM_FRONT', fov_deg=90):
+        self.nusc = NuScenes(version=version, dataroot=dataroot, verbose=False)
+        self.cam_name = cam_name
+        self.fov_rad = np.deg2rad(fov_deg / 2)
+
+    def __call__(self, results):
+        sample_token = results['sample_idx']
+        sample = self.nusc.get('sample', sample_token)
+        cam_data = self.nusc.get('sample_data', sample['data'][self.cam_name])
+        ego_pose = self.nusc.get('ego_pose', cam_data['ego_pose_token'])
+
+        ego_translation = np.array(ego_pose['translation'])
+        ego_rotation = Quaternion(ego_pose['rotation'])
+
+        centers = results['gt_bboxes_3d'].gravity_center.numpy()
+        boxes = results['gt_bboxes_3d']
+        labels = results['gt_labels_3d']
+
+        visible_indices = []
+        for i, center in enumerate(centers):
+            dir_vec = center - ego_translation
+            dir_local = ego_rotation.inverse.rotate(dir_vec)
+            angle = np.arctan2(dir_local[1], dir_local[0])
+            if abs(angle) <= self.fov_rad:
+                visible_indices.append(i)
+
+        if visible_indices:
+            results['gt_bboxes_3d'] = boxes[visible_indices]
+            results['gt_labels_3d'] = labels[visible_indices]
+        else:
+            results['gt_bboxes_3d'] = boxes[:0]
+            results['gt_labels_3d'] = labels[:0]
+
+        return results

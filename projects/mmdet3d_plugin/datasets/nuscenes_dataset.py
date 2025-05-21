@@ -19,6 +19,10 @@ from nuscenes.eval.common.utils import Quaternion
 from mmcv.parallel import DataContainer as DC
 import random
 import math
+
+import sys
+sys.path.append('/home/docker_rctrans/RCTrans')
+
 @DATASETS.register_module()
 class CustomNuScenesDataset(NuScenesDataset):
     r"""NuScenes Dataset.
@@ -26,13 +30,24 @@ class CustomNuScenesDataset(NuScenesDataset):
     This datset only add camera intrinsics and extrinsics to the results.
     """
 
-    def __init__(self, collect_keys, seq_mode=False, seq_split_num=1, num_frame_losses=1, queue_length=8, random_length=0, *args, **kwargs):
+    def __init__(self, 
+                 collect_keys, 
+                 seq_mode=False, 
+                 seq_split_num=1, 
+                 num_frame_losses=1, 
+                 queue_length=8, 
+                 random_length=0, 
+                 cam_types=['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT'], 
+                 radar_types=['RADAR_FRONT', 'RADAR_FRONT_LEFT', 'RADAR_FRONT_RIGHT', 'RADAR_BACK_LEFT', 'RADAR_BACK_RIGHT'], 
+                 *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.queue_length = queue_length
         self.collect_keys = collect_keys
         self.random_length = random_length
         self.num_frame_losses = num_frame_losses
         self.seq_mode = seq_mode
+        self.cam_types = cam_types
+        self.radar_types = radar_types
         if seq_mode:
             self.num_frame_losses = 1
             self.queue_length = 1
@@ -186,7 +201,7 @@ class CustomNuScenesDataset(NuScenesDataset):
             scene_token=info['scene_token'],
             frame_idx=info['frame_idx'],
             timestamp=info['timestamp'] / 1e6,
-            radar_info=None if 'radars' not in info else info['radars']
+            # radar_info=None if 'radars' not in info else info['radars']
         )
 
         if self.modality['use_camera']:
@@ -196,6 +211,8 @@ class CustomNuScenesDataset(NuScenesDataset):
             extrinsics = []
             img_timestamp = []
             for cam_type, cam_info in info['cams'].items():
+                if cam_type not in self.cam_types:
+                    continue
                 img_timestamp.append(cam_info['timestamp'] / 1e6)
                 image_paths.append(cam_info['data_path'])
                 # obtain lidar to image transformation matrix
@@ -226,6 +243,17 @@ class CustomNuScenesDataset(NuScenesDataset):
                     extrinsics=extrinsics,
                     prev_exists=prev_exists,
                 ))
+            
+        if self.modality['use_radar']:
+            radars = {}
+            for radar_type in info['radars']:
+                if radar_type not in self.radar_types:
+                    continue
+                radars[radar_type] = info['radars'][radar_type]
+            input_dict.update(dict(radar_info=radars))
+        else:
+            input_dict.update(dict(radar_info=None))
+
         if not self.test_mode:
             annos = self.get_ann_info(index)
             annos.update( 
@@ -255,6 +283,116 @@ class CustomNuScenesDataset(NuScenesDataset):
                 idx = self._rand_another(idx)
                 continue
             return data
+        
+
+    def _evaluate_single(self,
+                         result_path,
+                         logger=None,
+                         metric='bbox',
+                         result_name='pts_bbox'):
+        """Evaluation for a single model in nuScenes protocol.
+
+        Args:
+            result_path (str): Path of the result file.
+            logger (logging.Logger | str, optional): Logger used for printing
+                related information during evaluation. Default: None.
+            metric (str, optional): Metric name used for evaluation.
+                Default: 'bbox'.
+            result_name (str, optional): Result name in the metric prefix.
+                Default: 'pts_bbox'.
+
+        Returns:
+            dict: Dictionary of evaluation details.
+        """
+        from nuscenes import NuScenes
+        from tools.custom_nusc_eval import NuScenesEval
+        from os import path as osp
+        import mmcv
+
+        output_dir = osp.join(*osp.split(result_path)[:-1])
+        nusc = NuScenes(
+            version=self.version, dataroot=self.data_root, verbose=False)
+        eval_set_map = {
+            'v1.0-mini': 'mini_val',
+            'v1.0-trainval': 'val',
+        }
+        nusc_eval = NuScenesEval(
+            nusc,
+            config=self.eval_detection_configs,
+            result_path=result_path,
+            eval_set=eval_set_map[self.version],
+            output_dir=output_dir,
+            verbose=False)
+        nusc_eval.main(render_curves=False)
+
+        # record metrics
+        metrics = mmcv.load(osp.join(output_dir, 'metrics_summary.json'))
+        detail = dict()
+        metric_prefix = f'{result_name}_NuScenes'
+        for name in self.CLASSES:
+            for k, v in metrics['label_aps'][name].items():
+                val = float('{:.4f}'.format(v))
+                detail['{}/{}_AP_dist_{}'.format(metric_prefix, name, k)] = val
+            for k, v in metrics['label_tp_errors'][name].items():
+                val = float('{:.4f}'.format(v))
+                detail['{}/{}_{}'.format(metric_prefix, name, k)] = val
+            for k, v in metrics['tp_errors'].items():
+                val = float('{:.4f}'.format(v))
+                detail['{}/{}'.format(metric_prefix,
+                                      self.ErrNameMapping[k])] = val
+
+        detail['{}/NDS'.format(metric_prefix)] = metrics['nd_score']
+        detail['{}/mAP'.format(metric_prefix)] = metrics['mean_ap']
+        return detail
+    
+
+    def evaluate(self,
+                 results,
+                 metric='bbox',
+                 logger=None,
+                 jsonfile_prefix=None,
+                 result_names=['pts_bbox'],
+                 show=False,
+                 out_dir=None,
+                 pipeline=None):
+        """Evaluation in nuScenes protocol.
+
+        Args:
+            results (list[dict]): Testing results of the dataset.
+            metric (str | list[str], optional): Metrics to be evaluated.
+                Default: 'bbox'.
+            logger (logging.Logger | str, optional): Logger used for printing
+                related information during evaluation. Default: None.
+            jsonfile_prefix (str, optional): The prefix of json files including
+                the file path and the prefix of filename, e.g., "a/b/prefix".
+                If not specified, a temp file will be created. Default: None.
+            show (bool, optional): Whether to visualize.
+                Default: False.
+            out_dir (str, optional): Path to save the visualization results.
+                Default: None.
+            pipeline (list[dict], optional): raw data loading for showing.
+                Default: None.
+
+        Returns:
+            dict[str, float]: Results of each evaluation metric.
+        """
+        result_files, tmp_dir = self.format_results(results, jsonfile_prefix)
+
+        if isinstance(result_files, dict):
+            results_dict = dict()
+            for name in result_names:
+                print('Evaluating bboxes of {}'.format(name))
+                ret_dict = self._evaluate_single(result_files[name])
+            results_dict.update(ret_dict)
+        elif isinstance(result_files, str):
+            results_dict = self._evaluate_single(result_files)
+
+        if tmp_dir is not None:
+            tmp_dir.cleanup()
+
+        if show or out_dir:
+            self.show(results, out_dir, show=show, pipeline=pipeline)
+        return results_dict
 
 def invert_matrix_egopose_numpy(egopose):
     """ Compute the inverse transformation of a 4x4 egopose numpy matrix."""
