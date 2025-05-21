@@ -164,7 +164,7 @@ def main():
     if args.launcher == 'none':
         distributed = False
     else:
-        distributed = True
+        distributed = False
         init_dist(args.launcher, **cfg.dist_params)
         # re-set gpu_ids with distributed training mode
         _, world_size = get_dist_info()
@@ -218,7 +218,7 @@ def main():
         test_cfg=cfg.get('test_cfg'))
 
     model.init_weights()
-
+    
     if cfg.get('SyncBN', False):
         import torch.nn as nn
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)

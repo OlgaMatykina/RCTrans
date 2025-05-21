@@ -68,6 +68,21 @@ class PadMultiViewImage():
         return repr_str
 
 
+
+@PIPELINES.register_module()
+class LoadDinov2Features():
+    def __init__(self):
+        pass
+
+    def __call__(self, results):
+        # load dinov2 features
+        img_name = results['img_filename'][0]
+        img_name = img_name.split('/')[-1].split('.')[0]
+        dinov2_feat = torch.load(f'/home/docker_rctrans/RCTrans/debug_intermediate/{img_name}.pt')
+        results['dinov2'] = dinov2_feat
+        return results
+
+
 @PIPELINES.register_module()
 class NormalizeMultiviewImage(object):
     """Normalize the image.
