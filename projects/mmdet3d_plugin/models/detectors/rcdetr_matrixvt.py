@@ -547,11 +547,8 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
                     raise TypeError('{} must be a list, but got {}'.format(
                         name, type(var)))
             for key in data:
-                if key not in ['img', 'depth_maps', 'radar_depth', 'seg_mask', 'radar', 'lidar']:
-                    if len(data[key][0])>1:
-                        data[key] = torch.stack(data[key][0], dim=0)
-                    else:
-                        data[key] = data[key][0][0]
+                if key not in ['img', 'depth_maps', 'radar_depth', 'seg_mask']:
+                    data[key] = data[key][0][0].unsqueeze(0)
                 else:
                     data[key] = data[key][0]
             return self.simple_test(img_metas[0], **data)
@@ -626,7 +623,7 @@ class RCDETR_MatrixVT(MVXTwoStageDetector):
         # external_depth = rearrange(external_depth, '(b n) c h w -> b 1 n c h w', b=B)
 
         rec_img_feats, rec_radar_feats = self.extract_feat(data['img'], data['radar'], 1)
-        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego, data['img'].unsqueeze(1))
+        bev_feats, depth = self.img_feats_to_bev(rec_img_feats, ida_mat, intrinsics, sensor2ego, data['img'].unsqueeze(0).unsqueeze(0))
         
         # print('depth', depth.shape)
         # depth_bins = torch.linspace(2, 58, steps=112)  # реальные значения глубины, если нужно

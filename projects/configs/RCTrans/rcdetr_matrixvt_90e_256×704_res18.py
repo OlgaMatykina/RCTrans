@@ -20,7 +20,7 @@ out_size_factor = 4
 mem_query = 128
 
 img_norm_cfg = dict(
-    mean=[123.675, 103.53, 116.28], std=[58.395, 57.375, 57.12], to_rgb=True)
+    mean=[116.28, 103.53, 123.675], std=[57.12, 57.375, 58.395], to_rgb=True)
 # For nuScenes we usually do 10-class detection
 class_names = [
     'car', 'truck', 'construction_vehicle', 'bus', 'trailer', 'barrier',
@@ -162,7 +162,7 @@ model = dict(
         type='DepthLoss',
         dbound=[2.0, 58.0, 0.5],
         downsample_factor=16,
-        loss_weight=0.3
+        loss_weight=1
     ),
 
     # detect head
@@ -266,13 +266,18 @@ train_pipeline = [
         use_num=6,
         use_dim=radar_use_dims,
         max_num=2048),
+    # dict(
+    #     type='LoadLidarPointsFromFile',
+    #     coord_type='LIDAR',
+    #     load_dim=5,
+    #     use_dim=lidar_use_dims,
+    # ),
+    # dict(type='GenerateLidarDepth'),
     dict(
-        type='LoadLidarPointsFromFile',
-        coord_type='LIDAR',
+        type='LoadLidarAndGenerateDepth',
         load_dim=5,
         use_dim=lidar_use_dims,
     ),
-    dict(type='GenerateLidarDepth'),
     dict(type='GenerateRadarDepth'),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_bbox=True,
         with_label=True, with_bbox_depth=True),
@@ -291,7 +296,7 @@ train_pipeline = [
     dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='PETRFormatBundle3D', class_names=class_names, collect_keys=collect_keys + ['prev_exists']),
     dict(type='MyTransform',),
-    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists', 'lidar', 'depth_maps', 'radar_depth', 'seg_mask', 'num_points'] + collect_keys,
+    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists', 'depth_maps', 'radar_depth', 'seg_mask', 'num_points'] + collect_keys,
              meta_keys=('filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token', 'gt_bboxes_3d','gt_labels_3d','lidar2img','radar_aug_matrix', 'pcd_scale_factor'))
 ]
 val_pipeline = [
@@ -343,19 +348,18 @@ test_pipeline = [
         use_dim=radar_use_dims,
         max_num=2048),
 
-    dict(
-        type='LoadLidarPointsFromFile',
-        coord_type='LIDAR',
-        load_dim=5,
-        use_dim=lidar_use_dims,
-    ),
-    dict(type='GenerateLidarDepth'),
-    dict(type='GenerateRadarDepth'),
-
+    # dict(
+    #     type='LoadLidarPointsFromFile',
+    #     coord_type='LIDAR',
+    #     load_dim=5,
+    #     use_dim=lidar_use_dims,
+    # ),
+    # dict(type='GenerateLidarDepth'),
+    # dict(type='GenerateRadarDepth'),
     dict(type='RadarRangeFilter', radar_range=bev_range, max_num=2048),
-    dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False, with_depth=True),
+    dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False, with_depth=False),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
-    dict(type='PadMultiViewImage', size_divisor=32, training=True),
+    dict(type='PadMultiViewImage', size_divisor=32, training=False),
     dict(
         type='MultiScaleFlipAug3D',
         img_scale=(1333, 800),
@@ -368,7 +372,7 @@ test_pipeline = [
                 class_names=class_names,
                 with_label=False),
             dict(type='MyTransform', training=True),
-            dict(type='Collect3D', keys=['img','radar', 'lidar', 'depth_maps', 'radar_depth', 'num_points', 'seg_mask'] + collect_keys,
+            dict(type='Collect3D', keys=['img','radar', 'num_points'] + collect_keys,
             meta_keys=('filename', 'ori_shape', 'img_shape','pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token','lidar2img'))
         ]), 
 ]
@@ -393,17 +397,16 @@ data = dict(
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
     val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas',], 
-            queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, test_mode=True, seq_mode=True,),
+            queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, test_mode=True, seq_mode=True,),
     test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas', ], 
-            queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality,
-            samples_per_gpu=2),
+            queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
 
 optimizer = dict(
     type='AdamW', 
-    lr=1e-5, # bs 32 gpu 1 || bs 4 gpu 1: 1e-5 # bs 8: 2e-4 || bs 16: 4e-4
+    lr=4e-4, # bs 32 gpu 1 || bs 4 gpu 1: 1e-5 # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -436,8 +439,8 @@ checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 # runner = dict(type='IterBasedRunner', max_iters=1)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
 # load_from='ckpts/res50.pth'
-# load_from='/home/docker_rctrans/RCTrans/ckpts/res50_with_pretrained_baselssfpn.pth'
-load_from=None
+load_from='/home/docker_rctrans/RCTrans/ckpts/res50_with_pretrained_baselssfpn.pth'
+# load_from=None
 # resume_from='work_dirs/rctrans_gt_depth/iter_40004.pth'
 resume_from=None
 # custom_hooks = [dict(type='EMAHook')]
@@ -451,7 +454,7 @@ log_config = dict(
         #     type='WandbLoggerHook',
         #     init_kwargs=dict(
         #         project='radar-camera',   # Название проекта в WandB
-        #         name='lab_comp BEVDepth + RCTrans with branch bev_img from pretrained on full',     # Имя эксперимента
+        #         name='lab_comp BEVDepth + RCTrans with branch bev_img from pretrained on mini',     # Имя эксперимента
         #         config=dict(                # Дополнительные настройки эксперимента
         #             batch_size=batch_size,
         #             model='rcdetr',

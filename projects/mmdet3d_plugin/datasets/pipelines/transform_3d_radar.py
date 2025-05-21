@@ -323,9 +323,9 @@ class MyTransform:
         radar = DataContainer(results['radar'].tensor)
         results['radar'] = radar
 
-        if self.training:
-            lidar = DataContainer(results['lidar'].tensor)
-            results['lidar'] = lidar
+        # if self.training:
+        #     lidar = DataContainer(results['lidar'].tensor)
+        #     results['lidar'] = lidar
 
         # print('depth_maps', type(results['depth_maps']), len(results['depth_maps']), type(results['depth_maps'][0]), results['depth_maps'][0].shape)
         # print('img in mytransform', type(results['img']), len(results['img']), type(results['img'][0]), results['img'][0].shape)
@@ -688,6 +688,48 @@ class GenerateLidarDepth():
         # print('depth_maps', type(depth_maps), len(depth_maps), type(depth_maps[0]), depth_maps[0].shape)
         return results
 
+
+@PIPELINES.register_module()
+class LoadLidarAndGenerateDepth:
+    def __init__(self, load_dim, use_dim, min_dist=0.0, shift_height=False, use_color=False):
+        self.load_dim = load_dim
+        self.use_dim = use_dim
+        self.min_dist = min_dist
+        self.shift_height = shift_height
+        self.use_color = use_color
+
+    def _load_points(self, filename):
+        return np.fromfile(filename, dtype=np.float32)
+
+    def __call__(self, results):
+        # Загружаем точки
+        pts_filename = results['pts_filename']
+        points = self._load_points(pts_filename).reshape(-1, self.load_dim)
+        points = points[:, self.use_dim]
+
+        if self.shift_height:
+            floor_height = np.percentile(points[:, 2], 0.99)
+            height = points[:, 2] - floor_height
+            points = np.concatenate(
+                [points[:, :3], np.expand_dims(height, 1), points[:, 3:]], 1)
+
+        # Преобразуем сразу в тензор без обёртки в BasePoints
+        lidar_tensor = torch.from_numpy(points).float()
+
+        # Генерация depth maps
+        images = results['img']
+        intrinsics = results['intrinsics']
+        extrinsics = results['extrinsics']
+
+        depth_maps = []
+        for i in range(len(images)):
+            depth_map = get_lidar_depth(
+                lidar_tensor, images[i], extrinsics[i], intrinsics[i]
+            )
+            depth_maps.append(depth_map)
+
+        results['depth_maps'] = depth_maps
+        return results
 
 
 @PIPELINES.register_module()
