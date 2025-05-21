@@ -200,7 +200,7 @@ def main():
         workers_per_gpu=cfg.data.workers_per_gpu,
         dist=distributed,
         shuffle=False,
-        nonshuffler_sampler=cfg.data.nonshuffler_sampler,
+        nonshuffler_sampler=cfg.data.nonshuffler_sampler
     )
 
     # build the model and load checkpoint

@@ -28,8 +28,8 @@ class_names = [
 ]
 
 # num_gpus = 8
-num_gpus = 1
-batch_size = 2
+num_gpus = 2
+batch_size = 16
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -399,8 +399,10 @@ data = dict(
     val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas',], 
             queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, test_mode=True, seq_mode=True,),
     test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas', ], 
-            queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
+            queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality,
+            samples_per_gpu=1, 
+    ),
+    shuffler_sampler=dict(type='DistributedGroupSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
 
@@ -414,7 +416,8 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeOptimizerHook', cumulative_iters=16, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeOptimizerHook', cumulative_iters=2, grad_clip=dict(max_norm=35, norm_type=2))
+# optimizer_config = dict(type='OptimizerHook', grad_clip=dict(max_norm=35, norm_type=2))
 
 # learning policy
 lr_config = dict(
@@ -427,7 +430,7 @@ lr_config = dict(
 
 # evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
-evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater')
+evaluation = dict(interval=2, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater')
 
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
@@ -450,17 +453,17 @@ log_config = dict(
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(
-        #     type='WandbLoggerHook',
-        #     init_kwargs=dict(
-        #         project='radar-camera',   # Название проекта в WandB
-        #         name='lab_comp BEVDepth + RCTrans with branch bev_img from pretrained on mini',     # Имя эксперимента
-        #         config=dict(                # Дополнительные настройки эксперимента
-        #             batch_size=batch_size,
-        #             model='rcdetr',
-        #         )
-        #     )
-        # ),
+        dict(
+            type='WandbLoggerHook',
+            init_kwargs=dict(
+                project='radar-camera',   # Название проекта в WandB
+                name='BEVDepth + RCTrans with branch bev_img from pretrained on full',     # Имя эксперимента
+                config=dict(                # Дополнительные настройки эксперимента
+                    batch_size=batch_size,
+                    model='rcdetr',
+                )
+            )
+        ),
     ],
 )
 

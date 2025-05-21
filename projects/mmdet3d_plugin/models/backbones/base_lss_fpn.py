@@ -569,6 +569,19 @@ class BaseLSSFPN(nn.Module):
                     ax = axs[i, j]
                     ax.imshow(features[index], cmap='hot', interpolation='nearest')
                     ax.axis('off')  # Отключаем оси
+        depth_bins = torch.linspace(2, 58, steps=112)
+        depth_indices = depth.argmax(dim=1)  # (6, 16, 44) — индексы в диапазоне [0, 111]
+        depth_map = depth_bins[depth_indices]  # (6, 16, 44) — в метрах
+        # print((depth_indices > 0).any())
+        features = depth_map.squeeze().cpu().detach().numpy()
+        fig, axs = plt.subplots(3, 2, figsize=(8, 8))
+        for i in range(3):
+            for j in range(2):
+                index = i * 2 + j
+                if index < features.shape[0]:
+                    ax = axs[i, j]
+                    ax.imshow(features[index], cmap='hot', interpolation='nearest')
+                    ax.axis('off')  # Отключаем оси
 
         # Настроим отступы и сохраняем изображение
         plt.subplots_adjust(wspace=0.1, hspace=0.1)
@@ -613,7 +626,11 @@ class BaseLSSFPN(nn.Module):
         # print('feature_map', feature_map.shape)
 
         features = feature_map[0].squeeze().cpu().detach().numpy()  # Замените на ваши данные
+        features = feature_map[0].squeeze().cpu().detach().numpy()  # Замените на ваши данные
 
+        # Размер итогового изображения
+        grid_size = 5
+        fig, axs = plt.subplots(grid_size, grid_size, figsize=(8, 8))
         # Размер итогового изображения
         grid_size = 5
         fig, axs = plt.subplots(grid_size, grid_size, figsize=(8, 8))

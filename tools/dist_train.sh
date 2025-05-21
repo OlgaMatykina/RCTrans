@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export TORCH_DISTRIBUTED_DEBUG=DETAIL
 
 CONFIG=$1
 GPUS=$2
