@@ -42,6 +42,10 @@ input_modality = dict(
     use_radar=True,
     use_map=False,
     use_external=True)
+# cam_types = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
+cam_types = ['CAM_FRONT']
+# radar_types = ['RADAR_FRONT', 'RADAR_FRONT_LEFT', 'RADAR_FRONT_RIGHT', 'RADAR_BACK_LEFT', 'RADAR_BACK_RIGHT']
+radar_types = ['RADAR_FRONT']
 model = dict(
     type='RCDETR',
     num_frame_head_grads=num_frame_losses,
@@ -225,6 +229,13 @@ train_pipeline = [
         max_num=2048),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_bbox=True,
         with_label=True, with_bbox_depth=True),
+    dict(
+        type='FilterAnnotationsBySensor',
+        dataroot=data_root,
+        version='v1.0-trainval',
+        cam_name='CAM_FRONT',
+        fov_deg=90
+    ),
     dict(type='RadarRangeFilter', radar_range=bev_range),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
@@ -281,22 +292,24 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
+        ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_train.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training
         pipeline=train_pipeline,
         classes=class_names,
         modality=input_modality,
+        cam_types=cam_types,
+        radar_types=radar_types,
         collect_keys=collect_keys + ['img', 'radar', 'prev_exists', 'img_metas'],
         queue_length=queue_length,
         test_mode=False,
         use_valid_flag=True,
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
-    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
+    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, cam_types=cam_types, radar_types=radar_types),
+    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality, cam_types=cam_types, radar_types=radar_types),
+    shuffler_sampler=dict(type='DistributedGroupSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
 
@@ -328,8 +341,8 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
 checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
-# load_from='ckpts/res18.pth'
-load_from='work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
+load_from='/home/docker_rctrans/RCTrans/ckpts/res18.pth'
+# load_from='work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
 # load_from='/home/docker_rctrans/RCTrans/work_dirs/tmp/epoch_1.pth'
 # load_from=None
 # resume_from='/home/docker_rctrans/RCTrans/work_dirs/dino/latest.pth'
@@ -351,17 +364,17 @@ log_config = dict(
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        dict(
-            type='WandbLoggerHook',
-            init_kwargs=dict(
-                project='radar-camera',   # Название проекта в WandB
-                name='flashattn dinov2s + adapter + resnet18 RCTrans from res18 freezed epoch5 continue',     # Имя эксперимента
-                config=dict(                # Дополнительные настройки эксперимента
-                    batch_size=batch_size,
-                    model='rcdetr',
-                )
-            )
-        ),
+        # dict(
+        #     type='WandbLoggerHook',
+        #     init_kwargs=dict(
+        #         project='radar-camera',   # Название проекта в WandB
+        #         name='flashattn dinov2s + adapter + resnet18 RCTrans from res18 freezed epoch5 continue',     # Имя эксперимента
+        #         config=dict(                # Дополнительные настройки эксперимента
+        #             batch_size=batch_size,
+        #             model='rcdetr',
+        #         )
+        #     )
+        # ),
     ],
 )
 

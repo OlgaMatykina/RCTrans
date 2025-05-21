@@ -162,10 +162,10 @@ class DinoAdapter(DinoVisionTransformer):
 
         # outs, x, c, cls = dinov2_feats.values()
 
-        outs = [o.squeeze(0) for o in outs]
-        x = x.squeeze(0)
-        c = c.squeeze(0)
-        cls = cls.squeeze(0)
+        # outs = [o.squeeze(0) for o in outs]
+        # x = x.squeeze(0)
+        # c = c.squeeze(0)
+        # cls = cls.squeeze(0)
 
         # Split & Reshape
         c2 = c[:, 0:c2.size(1), :]

@@ -88,7 +88,7 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/dinov2_with_resnet_continue/
 
-bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/tmp2/
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/tmp/
 
 
 
