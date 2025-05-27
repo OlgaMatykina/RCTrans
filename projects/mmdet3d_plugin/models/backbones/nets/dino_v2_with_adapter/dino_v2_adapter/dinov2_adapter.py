@@ -44,7 +44,7 @@ class DinoAdapter(DinoVisionTransformer):
                  use_extra_extractor=True, with_cp=False, freeze_dino=True, *args, **kwargs):
 
         super().__init__(img_size=pretrain_size, num_heads=num_heads, patch_size=14, embed_dim=embed_dim, depth=depth, mlp_ratio=mlp_ratio,
-                         block_fn=block_fn, freeze=True, *args, **kwargs)
+                         block_fn=block_fn, freeze=freeze_dino, *args, **kwargs)
 
         self.pretrain_size = pretrain_size
 
@@ -59,7 +59,7 @@ class DinoAdapter(DinoVisionTransformer):
                 # state_dict = torch.hub.load_state_dict_from_url(url, map_location=torch.device('cpu'))
             state_dict = torch.load("/home/docker_rctrans/RCTrans/ckpts/dinov2_for_torch1.pth", map_location="cpu")
             # state_dict = torch.load("/media/matykina_ov/FastSSD/RCTrans/ckpts/dinov2_for_torch1.pth", map_location="cpu")
-            self.load_state_dict(state_dict=state_dict, strict=True)
+            self.load_state_dict(state_dict=state_dict, strict=False)
             # torch.save(self.state_dict(), "/media/matykina_ov/FastSSD/RCTrans/ckpts/dinov2_for_torch1.pth")
             # print("...dinov2 checkpoint loaded!")
 

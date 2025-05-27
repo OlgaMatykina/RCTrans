@@ -27,8 +27,8 @@ class_names = [
 ]
 
 # num_gpus = 8
-num_gpus = 1
-batch_size = 2
+num_gpus = 2
+batch_size = 12
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -56,7 +56,7 @@ model = dict(
         pretrained_vit=True,
         num_heads=6,
         embed_dim=384,
-        freeze_dino=True,
+        freeze_dino=False,
     ),
     img_backbone=dict(
         init_cfg=dict(
@@ -296,13 +296,13 @@ data = dict(
         box_type_3d='LiDAR'),
     val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
+    shuffler_sampler=dict(type='DistributedGroupSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
 
 optimizer = dict(
     type='AdamW', 
-    lr=4e-5, # bs 8: 2e-4 || bs 16: 4e-4
+    lr=1e-7, # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -310,15 +310,17 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=16, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=3, grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
-lr_config = dict(
-    policy='CosineAnnealing',
-    warmup='linear',
-    warmup_iters=500,
-    warmup_ratio=1.0 / 3,
-    min_lr_ratio=1e-3,
-    )
+# lr_config = dict(
+#     policy='CosineAnnealing',
+#     warmup='linear',
+#     warmup_iters=500,
+#     warmup_ratio=1.0 / 3,
+#     min_lr_ratio=1e-3,
+#     )
+
+lr_config = dict(policy='fixed')
 
 evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater')
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
@@ -329,12 +331,12 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
 # load_from='ckpts/res18.pth'
-load_from='work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
+# load_from='work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
 # load_from='/home/docker_rctrans/RCTrans/work_dirs/tmp/epoch_1.pth'
-# load_from=None
+load_from=None
 # resume_from='/home/docker_rctrans/RCTrans/work_dirs/dino/latest.pth'
 # resume_from='/home/docker_rctrans/RCTrans/work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
-resume_from=None
+resume_from='work_dirs/dinov2_with_resnet_from_res18/best_pts_bbox_NuScenes/NDS_epoch_11.pth'
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [
     dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
@@ -355,10 +357,11 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='flashattn dinov2s + adapter + resnet18 RCTrans from res18 freezed epoch5 continue',     # Имя эксперимента
+                name='flashattn dinov2s + adapter + resnet18 RCTrans from res18',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',
+                    optimizer=optimizer
                 )
             )
         ),

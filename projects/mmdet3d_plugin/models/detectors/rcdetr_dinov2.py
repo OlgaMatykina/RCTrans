@@ -82,7 +82,6 @@ class RCDETR(MVXTwoStageDetector):
                  radar_backbone=None,
                  radar_neck=None,
                  latent_dim=256,
-                 freeze_dino=True,
                  dino_backbone=True,
                  ):
         super(RCDETR, self).__init__(pts_voxel_layer, pts_voxel_encoder,
@@ -202,7 +201,7 @@ class RCDETR(MVXTwoStageDetector):
             #     img_feats = list(img_feats.values())
 
             img_feats0 = img_feats[0]
-            img_feats0 = img_feats0 + self.dino_weight * img_dinov2_feats_level2
+            img_feats0 = (1 - self.dino_weight) * img_feats0 + self.dino_weight * img_dinov2_feats_level2
             img_feats = [img_feats0, img_feats[1]]
         else:
             return None

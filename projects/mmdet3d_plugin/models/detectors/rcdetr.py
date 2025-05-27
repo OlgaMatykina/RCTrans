@@ -19,7 +19,6 @@ from projects.mmdet3d_plugin.models.utils.misc import locations
 from mmdet3d.models import builder
 import torch.nn.functional as F
 from projects.mmdet3d_plugin import SPConvVoxelization
-from einops import rearrange
 
 @DETECTORS.register_module()
 class RCDETR(MVXTwoStageDetector):
@@ -109,10 +108,7 @@ class RCDETR(MVXTwoStageDetector):
             if self.use_grid_mask:
                 img = self.grid_mask(img)
 
-            img_feats = self.img_backbone.forward(img, facet=self.img_backbone.facet)
-            img_feats = img_feats.transpose(2,3)
-            img_feats = rearrange(img_feats, 'b 1 c (h w) -> b 1 c h w', h=self.img_backbone.num_patches_h).squeeze(dim=1)
-            img_feats = [img_feats]
+            img_feats = self.img_backbone(img)
             if isinstance(img_feats, dict):
                 img_feats = list(img_feats.values())
         else:
@@ -411,58 +407,9 @@ class RCDETR(MVXTwoStageDetector):
         data['img_feats'] = rec_img_feats
         data['radar_feats'] = rec_radar_feats
 
-        # print('img_feats', rec_img_feats.shape)
-
-        # import matplotlib.pyplot as plt
-        # import numpy as np
-
-        # features = rec_img_feats.squeeze()[0].cpu().numpy()  # Замените на ваши данные
-
-        # # Размер итогового изображения
-        # grid_size = 16
-        # fig, axs = plt.subplots(grid_size, grid_size, figsize=(16, 16))
-
-        # # Итерируем по всем feature maps
-        # for i in range(grid_size):
-        #     for j in range(grid_size):
-        #         index = i * grid_size + j
-        #         if index < features.shape[0]:
-        #             ax = axs[i, j]
-        #             ax.imshow(features[index], cmap='hot', interpolation='nearest')
-        #             ax.axis('off')  # Отключаем оси
-
-        # # Настроим отступы и сохраняем изображение
-        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
-        # plt.savefig('img_rv_feature_maps_grid.png', dpi=300)
-        # plt.show()
-
-        # print('radar_feats', rec_radar_feats.shape)
-
-        # features = rec_radar_feats.squeeze().cpu().numpy()  # Замените на ваши данные
-
-        # # Размер итогового изображения
-        # grid_size = 8
-        # fig, axs = plt.subplots(grid_size, grid_size, figsize=(8, 8))
-
-        # # Итерируем по всем feature maps
-        # for i in range(grid_size):
-        #     for j in range(grid_size):
-        #         index = i * grid_size + j
-        #         if index < features.shape[0]:
-        #             ax = axs[i, j]
-        #             ax.imshow(features[index], cmap='hot', interpolation='nearest')
-        #             ax.axis('off')  # Отключаем оси
-
-        # # Настроим отступы и сохраняем изображение
-        # plt.subplots_adjust(wspace=0.1, hspace=0.1)
-        # plt.savefig('radar_bev_feature_maps_grid.png', dpi=300)
-        # plt.show()
-
         bbox_list = [dict() for i in range(len(img_metas))]
         bbox_pts = self.simple_test_pts(
             img_metas, **data)
         for result_dict, pts_bbox in zip(bbox_list, bbox_pts):
             result_dict['pts_bbox'] = pts_bbox
         return bbox_list
-
-    

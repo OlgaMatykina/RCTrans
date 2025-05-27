@@ -27,8 +27,8 @@ class_names = [
 ]
 
 # num_gpus = 8
-num_gpus = 1
-batch_size = 4
+num_gpus = 2
+batch_size = 12
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -51,7 +51,7 @@ model = dict(
     # img encoder
     img_backbone=dict(
         init_cfg=dict(
-            type='Pretrained', checkpoint="ckpts/resnet18-nuimages-pretrained-e2e.pth",
+            type='Pretrained', checkpoint="/home/docker_rctrans/RCTrans/ckpts/resnet18-nuimages-pretrained-e2e.pth",
             prefix='backbone.'),       
         type='ResNet',
         depth=18,
@@ -191,8 +191,8 @@ model = dict(
 
 
 dataset_type = 'CustomNuScenesDataset'
-data_root = '../HPR2/nuscenes/'
-ann_root = '../HPR2/'
+data_root = '/home/docker_rctrans/HPR3/nuscenes/'
+ann_root = '/home/docker_rctrans/HPR3/'
 file_client_args = dict(backend='disk')
 
 
@@ -229,9 +229,10 @@ train_pipeline = [
             ),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='PadMultiViewImage', size_divisor=32),
+    # dict(type='LoadDinov2Features'),
     dict(type='PETRFormatBundle3D', class_names=class_names, collect_keys=collect_keys + ['prev_exists']),
     dict(type='MyTransform',),
-    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists'] + collect_keys,
+    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists', ] + collect_keys, #'dinov2'
              meta_keys=('filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token', 'gt_bboxes_3d','gt_labels_3d','lidar2img','radar_aug_matrix', 'pcd_scale_factor'))
 ]
 test_pipeline = [
@@ -247,6 +248,7 @@ test_pipeline = [
     dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='PadMultiViewImage', size_divisor=32),
+    # dict(type='LoadDinov2Features'),
     dict(
         type='MultiScaleFlipAug3D',
         img_scale=(1333, 800),
@@ -259,18 +261,18 @@ test_pipeline = [
                 class_names=class_names,
                 with_label=False),
             dict(type='MyTransform',),
-            dict(type='Collect3D', keys=['img','radar'] + collect_keys,
+            dict(type='Collect3D', keys=['img','radar', ] + collect_keys, #'dinov2'
             meta_keys=('filename', 'ori_shape', 'img_shape','pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token','lidar2img'))
         ]), 
 ]
 
 data = dict(
     samples_per_gpu=batch_size,
-    workers_per_gpu=6,
+    workers_per_gpu=0,
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_train.pkl',
+        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training
@@ -283,15 +285,15 @@ data = dict(
         use_valid_flag=True,
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
-    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
+    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    shuffler_sampler=dict(type='DistributedGroupSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
 
 optimizer = dict(
     type='AdamW', 
-    lr=4e-4, # bs 8: 2e-4 || bs 16: 4e-4
+    lr=1e-7, # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -299,45 +301,61 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=8, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=3, grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
-lr_config = dict(
-    policy='CosineAnnealing',
-    warmup='linear',
-    warmup_iters=500,
-    warmup_ratio=1.0 / 3,
-    min_lr_ratio=1e-3,
-    )
+# lr_config = dict(
+#     policy='CosineAnnealing',
+#     warmup='linear',
+#     warmup_iters=500,
+#     warmup_ratio=1.0 / 3,
+#     min_lr_ratio=1e-3,
+#     )
 
-evaluation = dict(interval=num_iters_per_epoch*num_epochs/4, pipeline=test_pipeline)
+lr_config = dict(policy='fixed')
+
+evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater')
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 # evaluation = dict(interval=101, pipeline=test_pipeline)
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
-checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
-runner = dict(
-    type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
+checkpoint_config = dict(interval=1, max_keep_ckpts=3)
+runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
+# load_from='ckpts/res18.pth'
+# load_from='work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
+# load_from='/home/docker_rctrans/RCTrans/work_dirs/tmp/epoch_1.pth'
 load_from=None
-resume_from='ckpts/res18.pth'
+# resume_from='/home/docker_rctrans/RCTrans/work_dirs/dino/latest.pth'
+# resume_from='/home/docker_rctrans/RCTrans/work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
+resume_from='work_dirs/dinov2_with_resnet_from_res18/best_pts_bbox_NuScenes/NDS_epoch_11.pth'
 # custom_hooks = [dict(type='EMAHook')]
-custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
+custom_hooks = [
+    dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
+    dict(
+        type='CheckInvalidLossHook',
+        interval=1,  # проверять на каждом шаге
+        priority='VERY_HIGH'  # чтобы проверка шла до шага оптимизации
+    ),
+    # dict(type='FreezeAllButNewDepthHook', priority='VERY_HIGH'),
+    # dict(type='CheckFrozenParamsHook', priority='VERY_HIGH'),
+]
 
 log_config = dict(
-    interval=5,
+    interval=1,
     hooks=[
-        # dict(type='TextLoggerHook'),
-        dict(
-            type='WandbLoggerHook',
-            init_kwargs=dict(
-                project='radar-camera',   # Название проекта в WandB
-                name='RCTrans',     # Имя эксперимента
-                config=dict(                # Дополнительные настройки эксперимента
-                    batch_size=batch_size,
-                    model='rcdetr',
-                )
-            )
-        ),
+        dict(type='TextLoggerHook'),
+        # dict(
+        #     type='WandbLoggerHook',
+        #     init_kwargs=dict(
+        #         project='radar-camera',   # Название проекта в WandB
+        #         name='flashattn dinov2s + adapter + resnet18 RCTrans from res18',     # Имя эксперимента
+        #         config=dict(                # Дополнительные настройки эксперимента
+        #             batch_size=batch_size,
+        #             model='rcdetr',
+        #             optimizer=optimizer
+        #         )
+        #     )
+        # ),
     ],
 )
 
