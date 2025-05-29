@@ -89,32 +89,32 @@ model = dict(
             centers2d_cost=dict(type='BBox3DL1Cost', weight=10.0)))
         ),
     # radar encoder
-    radar_voxel_layer=dict(
-        num_point_features=6,
-        max_num_points=10, 
-        voxel_size=radar_voxel_size, 
-        max_voxels=(90000, 120000),
-        point_cloud_range=point_cloud_range),
-    radar_voxel_encoder=dict(
-        type='RadarFeatureNet',
-        in_channels=6,
-        feat_channels=[32, 64],
-        with_distance=False,
-        point_cloud_range=point_cloud_range,
-        voxel_size=radar_voxel_size,
-        norm_cfg=dict(
-            type='BN1d',
-            eps=1.0e-3,
-            momentum=0.01)
-    ),
-    radar_middle_encoder=dict(
-        type='PointPillarsScatter_futr3d',
-        in_channels=64,
-        output_shape=[128, 128],
-    ),
-    radar_dense_encoder=dict(
-        type='Radar_dense_encoder_tf',
-    ),
+    # radar_voxel_layer=dict(
+    #     num_point_features=6,
+    #     max_num_points=10, 
+    #     voxel_size=radar_voxel_size, 
+    #     max_voxels=(90000, 120000),
+    #     point_cloud_range=point_cloud_range),
+    # radar_voxel_encoder=dict(
+    #     type='RadarFeatureNet',
+    #     in_channels=6,
+    #     feat_channels=[32, 64],
+    #     with_distance=False,
+    #     point_cloud_range=point_cloud_range,
+    #     voxel_size=radar_voxel_size,
+    #     norm_cfg=dict(
+    #         type='BN1d',
+    #         eps=1.0e-3,
+    #         momentum=0.01)
+    # ),
+    # radar_middle_encoder=dict(
+    #     type='PointPillarsScatter_futr3d',
+    #     in_channels=64,
+    #     output_shape=[128, 128],
+    # ),
+    # radar_dense_encoder=dict(
+    #     type='Radar_dense_encoder_tf',
+    # ),
     # detect head
     pts_bbox_head=dict(
         type='RCTransHead',
@@ -291,7 +291,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW', 
-    lr=4e-4, # bs 8: 2e-4 || bs 16: 4e-4
+    lr=1e-5, #bs 4 gpu 1 # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -336,6 +336,7 @@ custom_hooks = [
 ]
 
 log_config = dict(
+    interval=1,
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
