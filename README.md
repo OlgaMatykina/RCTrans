@@ -90,6 +90,8 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/tmp/
 
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py 1 --work-dir work_dirs/dinov2_with_resnet_from_res18_cam_front/
+
 
 
 ```
@@ -108,6 +110,9 @@ bash mmdetection3d/tools/dist_test.sh projects/configs/MyFirstModel/pointpillar.
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py work_dirs/dino/iter_62062.pth 1 --eval bbox
 
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py ckpts/res18.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino.py work_dirs/dinov2_with_resnet_from_res18_cam_front/epoch_1.pth 1 --eval bbox
+
 
 ```
 Tracking

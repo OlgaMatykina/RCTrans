@@ -33,7 +33,8 @@ class PointPillarsScatter_futr3d(nn.Module):
         """Forward function to scatter features."""
         # TODO: rewrite the function in a batch manner
         # no need to deal with different batch cases
-        if batch_size is not None:
+        # if batch_size is not None:
+        if voxel_features.dim() == 2:
             return self.forward_batch(voxel_features, coors, batch_size)
         else:
             return self.forward_single(voxel_features, coors)
@@ -57,7 +58,8 @@ class PointPillarsScatter_futr3d(nn.Module):
         indices = indices.long()
         voxels = voxel_features.t()
         # Now scatter the blob back to the canvas.
-        canvas[:, indices] = voxels
+        # canvas[:, indices] = voxels
+        canvas[:, indices] = voxels.unsqueeze(1)
         # Undo the column stacking to final 4-dim tensor
         canvas = canvas.view(1, self.in_channels, self.ny, self.nx)
         return canvas

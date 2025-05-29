@@ -191,6 +191,9 @@ def main():
 
     # build the dataloader
     dataset = build_dataset(cfg.data.test)
+
+    # subset = torch.utils.data.Subset(dataset, list(range(0, 5)))
+
     data_loader = build_dataloader(
         dataset,
         samples_per_gpu=samples_per_gpu,

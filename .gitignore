@@ -19,3 +19,4 @@ __pycache__/
 
 wandb/
 debug_intermediate/
+show_dir/

@@ -28,7 +28,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 2
+batch_size = 4
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -292,7 +292,7 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_train.pkl',
+        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training
@@ -323,7 +323,7 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=16, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=8, grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 lr_config = dict(
     policy='CosineAnnealing',
@@ -341,13 +341,14 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
 checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
-load_from='/home/docker_rctrans/RCTrans/ckpts/res18.pth'
+# load_from='/home/docker_rctrans/RCTrans/ckpts/res18.pth'
 # load_from='work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
 # load_from='/home/docker_rctrans/RCTrans/work_dirs/tmp/epoch_1.pth'
-# load_from=None
+load_from=None
 # resume_from='/home/docker_rctrans/RCTrans/work_dirs/dino/latest.pth'
 # resume_from='/home/docker_rctrans/RCTrans/work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
-resume_from=None
+# resume_from=None
+resume_from='work_dirs/dinov2_with_resnet_from_res18_cam_front/epoch_1.pth'
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [
     dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
@@ -368,7 +369,7 @@ log_config = dict(
         #     type='WandbLoggerHook',
         #     init_kwargs=dict(
         #         project='radar-camera',   # Название проекта в WandB
-        #         name='flashattn dinov2s + adapter + resnet18 RCTrans from res18 freezed epoch5 continue',     # Имя эксперимента
+        #         name='flashattn dinov2s + adapter + resnet18 RCTrans from res18 CAM_FRONT',     # Имя эксперимента
         #         config=dict(                # Дополнительные настройки эксперимента
         #             batch_size=batch_size,
         #             model='rcdetr',

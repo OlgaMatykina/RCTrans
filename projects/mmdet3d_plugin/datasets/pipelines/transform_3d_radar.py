@@ -180,6 +180,138 @@ class LoadRadarPointsMultiSweeps(object):
         """str: Return a string that describes the module."""
         return f'{self.__class__.__name__}(sweeps_num={self.sweeps_num})'
     
+
+@PIPELINES.register_module()
+class LoadRadarPointsMultiSweepsRadialSpeed(object):
+    """Load radar points from multiple sweeps.
+    This is usually used for nuScenes dataset to utilize previous sweeps.
+    Args:
+        sweeps_num (int): Number of sweeps. Defaults to 10.
+        load_dim (int): Dimension number of the loaded points. Defaults to 5.
+        use_dim (list[int]): Which dimension to use. Defaults to [0, 1, 2, 4].
+        file_client_args (dict): Config dict of file clients, refer to
+            https://github.com/open-mmlab/mmcv/blob/master/mmcv/fileio/file_client.py
+            for more details. Defaults to dict(backend='disk').
+        pad_empty_sweeps (bool): Whether to repeat keyframe when
+            sweeps is empty. Defaults to False.
+        remove_close (bool): Whether to remove close points.
+            Defaults to False.
+        test_mode (bool): If test_model=True used for testing, it will not
+            randomly sample sweeps but select the nearest N frames.
+            Defaults to False.
+    """
+
+    def __init__(self,
+                 load_dim=18,
+                 use_dim=[0, 1, 2, 3, 4],
+                 sweeps_num=6, 
+                 use_num=6,
+                 file_client_args=dict(backend='disk'),
+                 max_num=300,
+                 pc_range=[-51.2, -51.2, -5.0, 51.2, 51.2, 3.0], 
+                 test_mode=False):
+        self.load_dim = load_dim
+        self.use_dim = use_dim
+        self.sweeps_num = sweeps_num
+        self.use_num = use_num
+        self.file_client_args = file_client_args.copy()
+        self.file_client = None
+        self.max_num = max_num
+        self.test_mode = test_mode
+        self.pc_range = pc_range
+
+    def _load_points(self, pts_filename):
+        """Private function to load point clouds data.
+        Args:
+            pts_filename (str): Filename of point clouds data.
+        Returns:
+            np.ndarray: An array containing point clouds data.
+            [N, 18]
+        """
+        points = np.fromfile(pts_filename, dtype=np.float32).reshape(-1, self.load_dim)
+
+        return points
+        
+
+    def _pad_or_drop(self, points):
+        '''
+        points: [N, 18]
+        '''
+
+        num_points = points.shape[0]
+
+        if num_points == self.max_num:
+            masks = np.ones((num_points, 1), 
+                        dtype=points.dtype)
+
+            return points, masks
+        
+        if num_points > self.max_num:
+            points = np.random.permutation(points)[:self.max_num, :]
+            masks = np.ones((self.max_num, 1), 
+                        dtype=points.dtype)
+            
+            return points, masks
+
+        if num_points < self.max_num:
+            zeros = np.zeros((self.max_num - num_points, points.shape[1]), 
+                        dtype=points.dtype)
+            masks = np.ones((num_points, 1), 
+                        dtype=points.dtype)
+            
+            points = np.concatenate((points, zeros), axis=0)
+            masks = np.concatenate((masks, zeros.copy()[:, [0]]), axis=0)
+
+            return points, masks
+        
+
+    def __call__(self, results):
+        '''Load radar points from a single sweep and compute vx, vy from radial speed.'''
+
+        sweeps = results['radar_path']  # list
+
+        all_points = []
+
+        for sweep in sweeps:
+
+            points = self._load_points(sweep)  # (N, load_dim)
+
+            # Координаты
+            x = points[:, 0]
+            y = points[:, 1]
+            z = points[:, 2]
+            speed_radial = points[:, 3]
+
+            # Вычисляем направление и скорость по x, y
+            xy = np.stack([x, y], axis=1)
+            norm = np.linalg.norm(xy, axis=1, keepdims=True) + 1e-6
+            direction = xy / norm
+            vx_vy = direction * speed_radial[:, np.newaxis]  # (N, 2)
+
+            # time_diff = 0 для всех
+            time_diff = np.zeros((points.shape[0], 1), dtype=np.float32)
+
+            # Собираем [x, y, z, vx, vy, time_diff]
+            points_final = np.concatenate([xy, z[:, np.newaxis], vx_vy, time_diff], axis=1)
+
+        all_points.append(points_final)
+
+        points = np.concatenate(all_points, axis=0)  # если в будущем будет несколько радаров
+        points = points[:, self.use_dim]
+
+        points = RadarPoints(points, points_dim=points.shape[-1], attribute_dims=None)
+
+        results['radar'] = points
+        results['points'] = points
+
+        results['pts_filename'] = results['radar_path'][0]
+
+        return results
+
+    def __repr__(self):
+        """str: Return a string that describes the module."""
+        return f'{self.__class__.__name__}(sweeps_num={self.sweeps_num})'
+    
 @PIPELINES.register_module()
 class RadarRangeFilter(object):
     """Filter points by the range.
