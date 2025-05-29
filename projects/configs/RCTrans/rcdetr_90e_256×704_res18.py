@@ -26,8 +26,8 @@ class_names = [
     'motorcycle', 'bicycle', 'pedestrian', 'traffic_cone'
 ]
 
-num_gpus = 1
-batch_size = 4
+num_gpus = 2
+batch_size = 8
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -190,8 +190,8 @@ model = dict(
 
 
 dataset_type = 'CustomNuScenesDataset'
-data_root = '../HPR1/nuScenes2d/nuscenes/'
-ann_root = '../HPR1/nuScenes2d/'
+data_root = '../HPR3/nuscenes/'
+ann_root = '../HPR3/'
 file_client_args = dict(backend='disk')
 
 
@@ -282,9 +282,10 @@ data = dict(
         use_valid_flag=True,
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
-    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
+    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    # shuffler_sampler=dict(type='InfiniteGroupEachSampleInBatchSampler'),
+    shuffler_sampler=dict(type='DistributedGroupSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
 
@@ -297,7 +298,8 @@ optimizer = dict(
         }),
     weight_decay=0.01)
 
-optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
+# optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=8, grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 lr_config = dict(
     policy='CosineAnnealing',
@@ -307,35 +309,34 @@ lr_config = dict(
     min_lr_ratio=1e-3,
     )
 
-evaluation = dict(interval=num_iters_per_epoch*num_epochs, pipeline=test_pipeline)
+evaluation = dict(interval=1, pipeline=test_pipeline, save_best='pts_bbox_NuScenes/NDS', rule='greater')
 # evaluation = dict(interval=num_iters_per_epoch+1, pipeline=test_pipeline)
 
 find_unused_parameters=False #### when use checkpoint, find_unused_parameters must be False
 # checkpoint_config = dict(interval=num_iters_per_epoch+1, max_keep_ckpts=3)
-checkpoint_config = dict(interval=num_iters_per_epoch//10*5+1, max_keep_ckpts=3)
+checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 
-runner = dict(
-    type='IterBasedRunner', max_iters=num_epochs * num_iters_per_epoch)
+runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
 load_from=None
-resume_from=None
+resume_from='work_dirs/rctrans_without_radar/epoch_30.pth'
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL')]
 
 log_config = dict(
-    interval=5,
+    interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(
-        #     type='WandbLoggerHook',
-        #     init_kwargs=dict(
-        #         project='radar-camera',   # Название проекта в WandB
-        #         name='RCTrans',     # Имя эксперимента
-        #         config=dict(                # Дополнительные настройки эксперимента
-        #             batch_size=batch_size,
-        #             model='rcdetr',
-        #         )
-        #     )
-        # ),
+        dict(
+            type='WandbLoggerHook',
+            init_kwargs=dict(
+                project='radar-camera',   # Название проекта в WandB
+                name='no flash-attn RCTrans without radar from init',     # Имя эксперимента
+                config=dict(                # Дополнительные настройки эксперимента
+                    batch_size=batch_size,
+                    model='rcdetr',
+                )
+            )
+        ),
     ],
 )
 

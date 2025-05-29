@@ -71,17 +71,19 @@ class RCTransTransformerDecoder(TransformerLayerSequence):
         # rv_key_pos = key_pos[self.bev_size * self.bev_size:, :, :]
         rv_key_pos = key_pos
 
-        bev_temp_pos = temp_pos[0].transpose(1,0).contiguous()
-        rv_temp_pos = temp_pos[1].transpose(1,0).contiguous()
+        # bev_temp_pos = temp_pos[0].transpose(1,0).contiguous()
+        rv_temp_pos = temp_pos[0].transpose(1,0).contiguous()
         temp_memory = temp_memory.transpose(1,0).contiguous()
 
-        bev_query_pos = query_pos[0].transpose(1,0).contiguous()
-        rv_query_pos = query_pos[1].transpose(1,0).contiguous()
+        # bev_query_pos = query_pos[0].transpose(1,0).contiguous()
+        rv_query_pos = query_pos[0].transpose(1,0).contiguous()
 
-        for index in range(int(len(self.layers)/2)):
+        # for index in range(int(len(self.layers)/2)):
+        for index in range(len(self.layers)):
 
             # query = self.layers[2*index](query, bev_key, bev_key, bev_query_pos, bev_key_pos, temp_memory, bev_temp_pos, attn_masks) # [Nq, B, C]
-            query = self.layers[2*index + 1](query, rv_key, rv_key, rv_query_pos, rv_key_pos, temp_memory, rv_temp_pos, attn_masks) # [Nq, B, C]
+            # query = self.layers[2*index + 1](query, rv_key, rv_key, rv_query_pos, rv_key_pos, temp_memory, rv_temp_pos, attn_masks) # [Nq, B, C]
+            query = self.layers[index](query, rv_key, rv_key, rv_query_pos, rv_key_pos, temp_memory, rv_temp_pos, attn_masks) # [Nq, B, C]
             
             if self.post_norm is not None:
                 temp_out = self.post_norm(query)
@@ -107,11 +109,14 @@ class RCTransTransformerDecoder(TransformerLayerSequence):
                 if not self.training:
                     return outputs_classes, outputs_coords, torch.stack(intermediate)
             # update query pos
-            if index < (int(len(self.layers)/2)-1):
+            # if index < (int(len(self.layers)/2)-1):
+            if index < (len(self.layers)-1):
                 reference_points = tmp[..., 0:3].clone()
-                bev_query_embeds, rv_query_embeds = query_embed(reference_points, img_metas)
-                bev_query_pos, rv_query_pos = temporal_alignment_pos(bev_query_embeds, rv_query_embeds, reference_points)
-                bev_query_pos = bev_query_pos.transpose(1,0).contiguous()
+                # bev_query_embeds, rv_query_embeds = query_embed(reference_points, img_metas)
+                rv_query_embeds = query_embed(reference_points, img_metas)
+                # bev_query_pos, rv_query_pos = temporal_alignment_pos(bev_query_embeds, rv_query_embeds, reference_points)
+                rv_query_pos = temporal_alignment_pos(rv_query_embeds, reference_points)
+                # bev_query_pos = bev_query_pos.transpose(1,0).contiguous()
                 rv_query_pos = rv_query_pos.transpose(1,0).contiguous()
 
         return outputs_classes, outputs_coords, torch.stack(intermediate)
@@ -143,7 +148,7 @@ class RCTransTemporalTransformer(BaseModule):
             self.encoder = build_transformer_layer_sequence(encoder)
         else:
             self.encoder = None
-        decoder['num_layers'] = decoder['num_layers']*2
+        # decoder['num_layers'] = decoder['num_layers']*2
         self.decoder = build_transformer_layer_sequence(decoder)
         self.embed_dims = self.decoder.embed_dims
         self.cross = cross

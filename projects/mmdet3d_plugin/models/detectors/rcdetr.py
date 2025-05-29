@@ -403,7 +403,7 @@ class RCDETR(MVXTwoStageDetector):
         """Test function without augmentaiton."""
         # data['img_feats'] = self.extract_img_feat(data['img'], 1)
         # data['radar_feats'] = self.extract_radar_feat(data['radar'])
-        rec_img_feats, rec_radar_feats = self.extract_feat(data['img'], None, 1)
+        rec_img_feats = self.extract_feat(data['img'], None, 1)
         data['img_feats'] = rec_img_feats
         # data['radar_feats'] = rec_radar_feats
 
