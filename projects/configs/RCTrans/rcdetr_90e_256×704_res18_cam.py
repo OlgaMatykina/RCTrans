@@ -28,7 +28,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 1
+batch_size = 16
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -39,11 +39,11 @@ collect_keys=['lidar2img', 'intrinsics', 'extrinsics','timestamp', 'img_timestam
 input_modality = dict(
     use_lidar=False,
     use_camera=True,
-    use_radar=True,
+    use_radar=False,
     use_map=False,
     use_external=True)
 model = dict(
-    type='RCDETR',
+    type='RCDETR_cam',
     num_frame_head_grads=num_frame_losses,
     num_frame_backbone_grads=num_frame_losses,
     num_frame_losses=num_frame_losses,
@@ -89,35 +89,35 @@ model = dict(
             centers2d_cost=dict(type='BBox3DL1Cost', weight=10.0)))
         ),
     # radar encoder
-    radar_voxel_layer=dict(
-        num_point_features=6,
-        max_num_points=10, 
-        voxel_size=radar_voxel_size, 
-        max_voxels=(90000, 120000),
-        point_cloud_range=point_cloud_range),
-    radar_voxel_encoder=dict(
-        type='RadarFeatureNet',
-        in_channels=6,
-        feat_channels=[32, 64],
-        with_distance=False,
-        point_cloud_range=point_cloud_range,
-        voxel_size=radar_voxel_size,
-        norm_cfg=dict(
-            type='BN1d',
-            eps=1.0e-3,
-            momentum=0.01)
-    ),
-    radar_middle_encoder=dict(
-        type='PointPillarsScatter_futr3d',
-        in_channels=64,
-        output_shape=[128, 128],
-    ),
-    radar_dense_encoder=dict(
-        type='Radar_dense_encoder_tf',
-    ),
+    # radar_voxel_layer=dict(
+    #     num_point_features=6,
+    #     max_num_points=10, 
+    #     voxel_size=radar_voxel_size, 
+    #     max_voxels=(90000, 120000),
+    #     point_cloud_range=point_cloud_range),
+    # radar_voxel_encoder=dict(
+    #     type='RadarFeatureNet',
+    #     in_channels=6,
+    #     feat_channels=[32, 64],
+    #     with_distance=False,
+    #     point_cloud_range=point_cloud_range,
+    #     voxel_size=radar_voxel_size,
+    #     norm_cfg=dict(
+    #         type='BN1d',
+    #         eps=1.0e-3,
+    #         momentum=0.01)
+    # ),
+    # radar_middle_encoder=dict(
+    #     type='PointPillarsScatter_futr3d',
+    #     in_channels=64,
+    #     output_shape=[128, 128],
+    # ),
+    # radar_dense_encoder=dict(
+    #     type='Radar_dense_encoder_tf',
+    # ),
     # detect head
     pts_bbox_head=dict(
-        type='RCTransHead',
+        type='RCTransHead_cam',
         num_classes=10,
         in_channels_img=256,
         in_channels_radar=64,
@@ -138,7 +138,7 @@ model = dict(
         transformer=dict(
             type='RCTransTemporalTransformer',
             decoder=dict(
-                type='RCTransTransformerDecoder',
+                type='RCTransTransformerDecoder_cam',
                 return_intermediate=True,
                 num_layers=6,
                 transformerlayers=dict(
@@ -207,16 +207,16 @@ ida_aug_conf = {
     }
 train_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
-    dict(
-        type='LoadRadarPointsMultiSweeps',
-        load_dim=18,
-        sweeps_num=6,
-        use_num=6,
-        use_dim=radar_use_dims,
-        max_num=2048),
+    # dict(
+    #     type='LoadRadarPointsMultiSweeps',
+    #     load_dim=18,
+    #     sweeps_num=6,
+    #     use_num=6,
+    #     use_dim=radar_use_dims,
+    #     max_num=2048),
     dict(type='LoadAnnotations3D', with_bbox_3d=True, with_label_3d=True, with_bbox=True,
         with_label=True, with_bbox_depth=True),
-    dict(type='RadarRangeFilter', radar_range=bev_range),
+    # dict(type='RadarRangeFilter', radar_range=bev_range),
     dict(type='ObjectRangeFilter', point_cloud_range=point_cloud_range),
     dict(type='ObjectNameFilter', classes=class_names),
     dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=True),
@@ -230,20 +230,20 @@ train_pipeline = [
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='PadMultiViewImage', size_divisor=32),
     dict(type='PETRFormatBundle3D', class_names=class_names, collect_keys=collect_keys + ['prev_exists']),
-    dict(type='MyTransform',),
-    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'radar', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists'] + collect_keys,
+    # dict(type='MyTransform',),
+    dict(type='Collect3D', keys=['gt_bboxes_3d', 'gt_labels_3d', 'img', 'gt_bboxes', 'gt_labels', 'centers2d', 'depths', 'prev_exists'] + collect_keys,
              meta_keys=('filename', 'ori_shape', 'img_shape', 'pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token', 'gt_bboxes_3d','gt_labels_3d','lidar2img','radar_aug_matrix', 'pcd_scale_factor'))
 ]
 test_pipeline = [
     dict(type='LoadMultiViewImageFromFiles', to_float32=True),
-    dict(
-        type='LoadRadarPointsMultiSweeps',
-        load_dim=18,
-        sweeps_num=6,
-        use_num=6,
-        use_dim=radar_use_dims,
-        max_num=2048),
-    dict(type='RadarRangeFilter', radar_range=bev_range),
+    # dict(
+    #     type='LoadRadarPointsMultiSweeps',
+    #     load_dim=18,
+    #     sweeps_num=6,
+    #     use_num=6,
+    #     use_dim=radar_use_dims,
+    #     max_num=2048),
+    # dict(type='RadarRangeFilter', radar_range=bev_range),
     dict(type='ResizeCropFlipRotImage', data_aug_conf = ida_aug_conf, training=False),
     dict(type='NormalizeMultiviewImage', **img_norm_cfg),
     dict(type='PadMultiViewImage', size_divisor=32),
@@ -258,8 +258,8 @@ test_pipeline = [
                 collect_keys=collect_keys,
                 class_names=class_names,
                 with_label=False),
-            dict(type='MyTransform',),
-            dict(type='Collect3D', keys=['img','radar'] + collect_keys,
+            # dict(type='MyTransform',),
+            dict(type='Collect3D', keys=['img'] + collect_keys,
             meta_keys=('filename', 'ori_shape', 'img_shape','pad_shape', 'scale_factor', 'flip', 'box_mode_3d', 'box_type_3d', 'img_norm_cfg', 'scene_token','lidar2img'))
         ]), 
 ]
@@ -277,14 +277,14 @@ data = dict(
         pipeline=train_pipeline,
         classes=class_names,
         modality=input_modality,
-        collect_keys=collect_keys + ['img', 'radar', 'prev_exists', 'img_metas'],
+        collect_keys=collect_keys + ['img', 'prev_exists', 'img_metas'],
         queue_length=queue_length,
         test_mode=False,
         use_valid_flag=True,
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
-    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     shuffler_sampler=dict(type='DistributedGroupSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
@@ -299,7 +299,7 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=32, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=4, grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 lr_config = dict(
     policy='CosineAnnealing',

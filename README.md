@@ -81,6 +81,11 @@ bash mmdetection3d/tools/dist_train.sh projects/configs/MyFirstModel/pointpillar
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py 1 --work-dir work_dirs/rctrans_mini_zero/
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py 1 --work-dir work_dirs/rctrans_on_full_from_init/
+
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam.py 1 --work-dir work_dirs/tmp/
+
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_radar.py 1 --work-dir work_dirs/rctrans_radar/
+
 ```
 Evaluation
 ```
@@ -93,6 +98,11 @@ bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_bevlo
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py work_dirs/rcdetr/iter_39555.pth 1 --eval bbox
 
 bash mmdetection3d/tools/dist_test.sh projects/configs/MyFirstModel/pointpillar.py work_dirs/pointpillar/epoch_1.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam.py ckpts/res18.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_radar.py ckpts/res18.pth 1 --eval bbox
+
 ```
 Tracking
 ```

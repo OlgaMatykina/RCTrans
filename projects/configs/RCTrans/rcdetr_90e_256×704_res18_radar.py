@@ -28,7 +28,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 1
+batch_size = 8
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -43,51 +43,51 @@ input_modality = dict(
     use_map=False,
     use_external=True)
 model = dict(
-    type='RCDETR',
+    type='RCDETR_radar',
     num_frame_head_grads=num_frame_losses,
     num_frame_backbone_grads=num_frame_losses,
     num_frame_losses=num_frame_losses,
     use_grid_mask=True,
     # img encoder
-    img_backbone=dict(
-        init_cfg=dict(
-            type='Pretrained', checkpoint="/home/docker_rctrans/RCTrans/ckpts/resnet18-nuimages-pretrained-e2e.pth",
-            prefix='backbone.'),       
-        type='ResNet',
-        depth=18,
-        num_stages=4,
-        out_indices=(2, 3),
-        frozen_stages=-1,
-        norm_cfg=dict(type='BN2d', requires_grad=False),
-        norm_eval=True,
-        with_cp=True,
-        style='pytorch'),
-    img_neck=dict(
-        type='CPFPN',  ###remove unused parameters 
-        in_channels=[256, 512],
-        out_channels=256,
-        num_outs=2),
-    img_roi_head=dict(
-        type='FocalHead',
-        num_classes=10,
-        in_channels=256,
-        loss_cls2d=dict(
-            type='QualityFocalLoss',
-            use_sigmoid=True,
-            beta=2.0,
-            loss_weight=2.0),
-        loss_centerness=dict(type='GaussianFocalLoss', reduction='mean', loss_weight=1.0),
-        loss_bbox2d=dict(type='L1Loss', loss_weight=5.0),
-        loss_iou2d=dict(type='GIoULoss', loss_weight=2.0),
-        loss_centers2d=dict(type='L1Loss', loss_weight=10.0),
-        train_cfg=dict(
-        assigner2d=dict(
-            type='HungarianAssigner2D',
-            cls_cost=dict(type='FocalLossCost', weight=2.),
-            reg_cost=dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
-            iou_cost=dict(type='IoUCost', iou_mode='giou', weight=2.0),
-            centers2d_cost=dict(type='BBox3DL1Cost', weight=10.0)))
-        ),
+    # img_backbone=dict(
+    #     init_cfg=dict(
+    #         type='Pretrained', checkpoint="/home/docker_rctrans/RCTrans/ckpts/resnet18-nuimages-pretrained-e2e.pth",
+    #         prefix='backbone.'),       
+    #     type='ResNet',
+    #     depth=18,
+    #     num_stages=4,
+    #     out_indices=(2, 3),
+    #     frozen_stages=-1,
+    #     norm_cfg=dict(type='BN2d', requires_grad=False),
+    #     norm_eval=True,
+    #     with_cp=True,
+    #     style='pytorch'),
+    # img_neck=dict(
+    #     type='CPFPN',  ###remove unused parameters 
+    #     in_channels=[256, 512],
+    #     out_channels=256,
+    #     num_outs=2),
+    # img_roi_head=dict(
+    #     type='FocalHead',
+    #     num_classes=10,
+    #     in_channels=256,
+    #     loss_cls2d=dict(
+    #         type='QualityFocalLoss',
+    #         use_sigmoid=True,
+    #         beta=2.0,
+    #         loss_weight=2.0),
+    #     loss_centerness=dict(type='GaussianFocalLoss', reduction='mean', loss_weight=1.0),
+    #     loss_bbox2d=dict(type='L1Loss', loss_weight=5.0),
+    #     loss_iou2d=dict(type='GIoULoss', loss_weight=2.0),
+    #     loss_centers2d=dict(type='L1Loss', loss_weight=10.0),
+    #     train_cfg=dict(
+    #     assigner2d=dict(
+    #         type='HungarianAssigner2D',
+    #         cls_cost=dict(type='FocalLossCost', weight=2.),
+    #         reg_cost=dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
+    #         iou_cost=dict(type='IoUCost', iou_mode='giou', weight=2.0),
+    #         centers2d_cost=dict(type='BBox3DL1Cost', weight=10.0)))
+    #     ),
     # radar encoder
     radar_voxel_layer=dict(
         num_point_features=6,
@@ -117,7 +117,7 @@ model = dict(
     ),
     # detect head
     pts_bbox_head=dict(
-        type='RCTransHead',
+        type='RCTransHead_radar',
         num_classes=10,
         in_channels_img=256,
         in_channels_radar=64,
@@ -138,7 +138,7 @@ model = dict(
         transformer=dict(
             type='RCTransTemporalTransformer',
             decoder=dict(
-                type='RCTransTransformerDecoder',
+                type='RCTransTransformerDecoder_radar',
                 return_intermediate=True,
                 num_layers=6,
                 transformerlayers=dict(
@@ -283,8 +283,8 @@ data = dict(
         use_valid_flag=True,
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
-    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'radar', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     shuffler_sampler=dict(type='DistributedGroupSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
@@ -299,7 +299,7 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=32, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=4, grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 lr_config = dict(
     policy='CosineAnnealing',
@@ -339,17 +339,17 @@ log_config = dict(
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(
-        #     type='WandbLoggerHook',
-        #     init_kwargs=dict(
-        #         project='radar-camera',   # Название проекта в WandB
-        #         name='RCTrans on full from zero',     # Имя эксперимента
-        #         config=dict(                # Дополнительные настройки эксперимента
-        #             batch_size=batch_size,
-        #             model='rcdetr',
-        #         )
-        #     )
-        # ),
+        dict(
+            type='WandbLoggerHook',
+            init_kwargs=dict(
+                project='radar-camera',   # Название проекта в WandB
+                name='RCTrans only radar on full from zero',     # Имя эксперимента
+                config=dict(                # Дополнительные настройки эксперимента
+                    batch_size=batch_size,
+                    model='rcdetr',
+                )
+            )
+        ),
     ],
 )
 

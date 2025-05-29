@@ -18,3 +18,4 @@ __pycache__/
 *.pyc
 
 wandb/
+docker/start.local.sh
