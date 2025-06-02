@@ -86,6 +86,8 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam.
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_radar.py 1 --work-dir work_dirs/rctrans_radar/
 
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam.py 1 --work-dir work_dirs/rctrans_only_camera_from_res18/
+
 ```
 Evaluation
 ```

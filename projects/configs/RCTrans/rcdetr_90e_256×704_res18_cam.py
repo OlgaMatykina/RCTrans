@@ -270,7 +270,7 @@ data = dict(
     train=dict(
         type=dataset_type,
         data_root=data_root,
-        ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_train.pkl',
+        ann_file=ann_root + 'nuscenes_radar_temporal_infos_train.pkl',
         num_frame_losses=num_frame_losses,
         seq_split_num=2, # streaming video training
         seq_mode=True, # streaming video training
@@ -283,8 +283,8 @@ data = dict(
         use_valid_flag=True,
         filter_empty_gt=False,
         box_type_3d='LiDAR'),
-    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
-    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'mini_nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    val=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
+    test=dict(type=dataset_type, data_root=data_root, pipeline=test_pipeline, collect_keys=collect_keys + ['img', 'img_metas'], queue_length=queue_length, ann_file=ann_root + 'nuscenes_radar_temporal_infos_val.pkl', classes=class_names, modality=input_modality),
     shuffler_sampler=dict(type='DistributedGroupSampler'),
     nonshuffler_sampler=dict(type='DistributedSampler')
     )
@@ -299,7 +299,7 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=4, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=8, grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 lr_config = dict(
     policy='CosineAnnealing',
@@ -320,11 +320,11 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
 checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
-load_from='ckpts/res18.pth'
+resume_from='work_dirs/rctrans_only_camera_from_res18/epoch_1.pth'
 # resume_from='ckpts/res18.pth'
 # resume_from=None
 # resume_from='work_dirs/rctrans_on_full_from_init/epoch_12.pth'
-resume_from=None
+load_from=None
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [
     dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
@@ -339,17 +339,17 @@ log_config = dict(
     interval=1,
     hooks=[
         dict(type='TextLoggerHook'),
-        # dict(
-        #     type='WandbLoggerHook',
-        #     init_kwargs=dict(
-        #         project='radar-camera',   # Название проекта в WandB
-        #         name='RCTrans on full from zero',     # Имя эксперимента
-        #         config=dict(                # Дополнительные настройки эксперимента
-        #             batch_size=batch_size,
-        #             model='rcdetr',
-        #         )
-        #     )
-        # ),
+        dict(
+            type='WandbLoggerHook',
+            init_kwargs=dict(
+                project='radar-camera',   # Название проекта в WandB
+                name='flash-attn RCTrans only camera on full from res18.pth',     # Имя эксперимента
+                config=dict(                # Дополнительные настройки эксперимента
+                    batch_size=batch_size,
+                    model='rcdetr',
+                )
+            )
+        ),
     ],
 )
 
