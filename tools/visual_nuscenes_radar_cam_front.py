@@ -323,6 +323,8 @@ class NuScenes:
         else:
             boxes = self.get_boxes(sample_data_token)
 
+            print(boxes)
+
         # Make list of Box objects including coord system transforms.
         box_list = []
         for box in boxes:
@@ -1141,7 +1143,8 @@ class NuScenesExplorer:
                 if channel == 'CAM_FRONT':
                     camera_data[channel] = token
             elif sensor_modality == 'radar':
-                radar_data[channel] = token
+                if channel == 'RADAR_FRONT':
+                    radar_data[channel] = token
 
         # Create plots.
         num_radar_plots = 1 if len(radar_data) > 0 else 0
@@ -1156,7 +1159,7 @@ class NuScenesExplorer:
             ax = axes[0]
             for i, (_, sd_token) in enumerate(radar_data.items()):
                 self.render_sample_data(sd_token, with_anns=i == 0, box_vis_level=box_vis_level, ax=ax, nsweeps=nsweeps,
-                                        verbose=False)
+                                        verbose=False, underlay_map=False, use_flat_vehicle_coordinates=True)
             ax.set_title('Fused RADARs')
 
         # # Plot lidar into a single subplot.
@@ -1186,7 +1189,7 @@ class NuScenesExplorer:
                                                 show_panoptic=show_panoptic)
             else:
                 self.render_sample_data(sd_token, box_vis_level=box_vis_level, ax=ax, nsweeps=nsweeps,
-                                        show_lidarseg=False, verbose=False)
+                                        show_lidarseg=False, verbose=False, underlay_map=False, use_flat_vehicle_coordinates=False)
 
         # Change plot settings and write to disk.
         axes.flatten()[-1].axis('off')
@@ -1462,8 +1465,15 @@ class NuScenesExplorer:
             ax.plot(0, 0, 'x', color='red')
 
             # Get boxes in lidar frame.
-            _, boxes, _ = self.nusc.get_sample_data(ref_sd_token, box_vis_level=box_vis_level,
+            # _, boxes, _ = self.nusc.get_sample_data(ref_sd_token, box_vis_level=box_vis_level,
+            #                                         use_flat_vehicle_coordinates=use_flat_vehicle_coordinates)
+            
+            # print('lidar_boxes')
+            
+            _, boxes, _ = self.nusc.get_sample_data(sample_data_token, box_vis_level=box_vis_level,
                                                     use_flat_vehicle_coordinates=use_flat_vehicle_coordinates)
+
+            print('radar_boxes')
 
             # Show boxes.
             if with_anns:
@@ -1478,6 +1488,8 @@ class NuScenesExplorer:
             # Load boxes and image.
             data_path, boxes, camera_intrinsic = self.nusc.get_sample_data(sample_data_token,
                                                                            box_vis_level=box_vis_level)
+
+            print('camera_intrinsic', camera_intrinsic)
             data = Image.open(data_path)
 
             # Init axes.

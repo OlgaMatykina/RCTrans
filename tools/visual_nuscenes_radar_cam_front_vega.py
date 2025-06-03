@@ -106,6 +106,14 @@ class Vega:
         with open('{}.json'.format(annotations)) as f:
                 table = json.load(f)
         return table
+    
+    def generate_ego_pose_sequence_straight(self, num_frames, translation_step=0.5):
+        poses = []
+        for i in range(num_frames):
+            pose = np.eye(4, dtype=np.float32)
+            pose[0, 3] = i * translation_step  # движение по X
+            poses.append(pose)
+        return poses
 
     def __load_table__(self, table_name, pred=False) -> dict:
         """ Loads a table. """
@@ -181,7 +189,7 @@ class Vega:
         sd_record = self.get('sample_data', sample_data_token)
         return osp.join(self.dataroot, sd_record['filename'])
 
-    def get_sample_data(self, sample_data_token: str,
+    def get_sample_data(self, sample_data_token: str, modality, ego_pose,
                         box_vis_level: BoxVisibility = BoxVisibility.ANY,
                         selected_anntokens: List[str] = None,
                         use_flat_vehicle_coordinates: bool = False) -> \
@@ -198,19 +206,19 @@ class Vega:
         """
 
         # Retrieve sensor & pose records
-        sd_record = self.get('sample_data', sample_data_token)
-        cs_record = self.get('calibrated_sensor', sd_record['calibrated_sensor_token'])
-        sensor_record = self.get('sensor', cs_record['sensor_token'])
-        pose_record = self.get('ego_pose', sd_record['ego_pose_token'])
+        # sd_record = self.get('sample_data', sample_data_token)
+        # cs_record = self.get('calibrated_sensor', sd_record['calibrated_sensor_token'])
+        # sensor_record = self.get('sensor', cs_record['sensor_token'])
+        # pose_record = self.get('ego_pose', sd_record['ego_pose_token'])
 
-        data_path = self.get_sample_data_path(sample_data_token)
+        # data_path = self.get_sample_data_path(sample_data_token)
 
-        if sensor_record['modality'] == 'camera':
-            cam_intrinsic = np.array(cs_record['camera_intrinsic'])
-            imsize = (sd_record['width'], sd_record['height'])
-        else:
-            cam_intrinsic = None
-            imsize = None
+        # if modality == 'camera':
+        #     cam_intrinsic = np.array(cs_record['camera_intrinsic'])
+        #     imsize = (sd_record['width'], sd_record['height'])
+        # else:
+        #     cam_intrinsic = None
+        #     imsize = None
 
         # Retrieve all sample annotations and map to sensor coordinate system.
         if selected_anntokens is not None:
@@ -223,25 +231,27 @@ class Vega:
         for box in boxes:
             if use_flat_vehicle_coordinates:
                 # Move box to ego vehicle coord system parallel to world z plane.
-                yaw = Quaternion(pose_record['rotation']).yaw_pitch_roll[0]
-                box.translate(-np.array(pose_record['translation']))
+                rotation_matrix = ego_pose[:3, :3]
+                translation = ego_pose[:3, 3]
+                yaw = Quaternion(matrix=rotation_matrix).yaw_pitch_roll[0]
+                box.translate(-np.array(translation))
                 box.rotate(Quaternion(scalar=np.cos(yaw / 2), vector=[0, 0, np.sin(yaw / 2)]).inverse)
-            else:
-                # Move box to ego vehicle coord system.
-                box.translate(-np.array(pose_record['translation']))
-                box.rotate(Quaternion(pose_record['rotation']).inverse)
+            # else:
+            #     # Move box to ego vehicle coord system.
+            #     box.translate(-np.array(pose_record['translation']))
+            #     box.rotate(Quaternion(pose_record['rotation']).inverse)
 
-                #  Move box to sensor coord system.
-                box.translate(-np.array(cs_record['translation']))
-                box.rotate(Quaternion(cs_record['rotation']).inverse)
+            #     #  Move box to sensor coord system.
+            #     box.translate(-np.array(cs_record['translation']))
+            #     box.rotate(Quaternion(cs_record['rotation']).inverse)
 
-            if sensor_record['modality'] == 'camera' and not \
-                    box_in_image(box, cam_intrinsic, imsize, vis_level=box_vis_level):
-                continue
+            # if sensor_record['modality'] == 'camera' and not \
+            #         box_in_image(box, cam_intrinsic, imsize, vis_level=box_vis_level):
+            #     continue
 
             box_list.append(box)
 
-        return data_path, box_list, cam_intrinsic
+        return box_list #, cam_intrinsic
 
     def get_box(self, sample_annotation_token: str) -> Box:
         """
@@ -991,6 +1001,7 @@ class VegaExplorer:
         """
         # record = self.nusc.get('sample', token)
         record = self.nusc.data_infos[int(token)]
+        ego_poses = self.nusc.generate_ego_pose_sequence_straight(len(self.nusc.data_infos))
 
         # Separate RADAR from LIDAR and vision.
         radar_data = {'RADAR_FRONT': [record['radar_path']],}
@@ -1008,7 +1019,7 @@ class VegaExplorer:
             ax = axes[0]
             
             self.render_sample_data('radar', radar_data['RADAR_FRONT'], token, with_anns=True, box_vis_level=box_vis_level, ax=ax, nsweeps=nsweeps, 
-                                    verbose=False)
+                                    verbose=False, ego_pose=ego_poses[int(token)])
             ax.set_title('Fused RADARs')
 
         # # Plot lidar into a single subplot.
@@ -1164,6 +1175,7 @@ class VegaExplorer:
                            sensor: str,
                            path: str,
                            token: str,
+                           ego_pose: np.ndarray = None,
                            with_anns: bool = True,
                            box_vis_level: BoxVisibility = BoxVisibility.ANY,
                            axes_limit: float = 40,
@@ -1338,16 +1350,17 @@ class VegaExplorer:
             ax.plot(0, 0, 'x', color='red')
 
             # Get boxes in lidar frame.
-            # _, boxes, _ = self.nusc.get_sample_data(token, box_vis_level=box_vis_level,
-            #                                         use_flat_vehicle_coordinates=use_flat_vehicle_coordinates)
+            boxes = self.nusc.get_sample_data(token, box_vis_level=box_vis_level,
+                                                    use_flat_vehicle_coordinates=True, modality=sensor, ego_pose=ego_pose)
 
-            boxes = self.nusc.get_boxes(token)
+            # boxes = self.nusc.get_boxes(token)
 
             # Show boxes.
             if with_anns:
                 for box in boxes:
                     c = np.array(self.get_color(box.name)) / 255.0
-                    box.render(ax, view=np.eye(4), colors=(c, c, c))
+                    view = np.eye(4)
+                    box.render(ax, view=view, colors=(c, c, c))
 
             # Limit visible range.
             ax.set_xlim(-axes_limit, axes_limit)
@@ -1364,12 +1377,13 @@ class VegaExplorer:
             # Show image.
             ax.imshow(data)
             # extrinsics: 4x4 (cam->world)
-            extrinsics = np.array([
-                [1., 0., 0., 0.6],
-                [0., 0.9961947, -0.08715574, -0.3],
-                [0., 0.08715574, 0.9961947, -0.4],
-                [0., 0., 0., 1.],
-            ], dtype=np.float32)
+            # extrinsics = np.array([
+            #     [1., 0., 0., 0.6],
+            #     [0., 0.9961947, -0.08715574, -0.3],
+            #     [0., 0.08715574, 0.9961947, -0.4],
+            #     [0., 0., 0., 1.],
+            # ], dtype=np.float32)
+            extrinsics = np.eye(4)
 
             # Инверсия extrinsics: world->cam
             world_to_cam = np.linalg.inv(extrinsics)
@@ -1381,15 +1395,40 @@ class VegaExplorer:
                 [0.0, 0.0, 1.0]
             ], dtype=np.float32)
 
+            angle_deg = -30
+            angle_rad = np.deg2rad(angle_deg)
+
+            # Поворот вокруг Z (против часовой стрелки)
+            Rz = np.array([
+                [np.cos(angle_rad), -np.sin(angle_rad), 0, 0],
+                [np.sin(angle_rad),  np.cos(angle_rad), 0, 0],
+                [0,                 0,                  1, 0],
+                [0,                 0,                  0, 1]
+            ])
+
+            # Сдвиг по Z на 10
+            T = np.eye(4)
+            T[2, 3] = 30
+
+            # Интринсик 4x4 (K_4x4), как раньше
+            K_4x4 = np.eye(4)
+            K_4x4[:3, :3] = K  # твоя 3x3 интринсик
+
+            # Итоговая матрица: сначала сдвиг, потом поворот, потом интринсик
+            M = K_4x4 @ Rz @ T
+
             # Комбинируем в projection matrix 3x4
             P = K @ world_to_cam[:3, :]  # world_to_cam[:3,:] — 3x4, K — 3x3 -> P 3x4
 
-
+            K_4x4 = np.eye(4, dtype=np.float32)
+            K_4x4[:3, :3] = K
             # Show boxes.
             if with_anns:
                 for box in boxes:
                     c = np.array(self.get_color(box.name)) / 255.0
-                    box.render(ax, view=P, normalize=True, colors=(c, c, c))
+                    view = np.eye(4)
+                    view[0, 3] = 10  # сдвиг по X на 10
+                    box.render(ax, view=M, normalize=True, colors=(c, c, c))
 
             # Limit visible range.
             ax.set_xlim(0, data.size[0])
