@@ -1346,11 +1346,11 @@ class NuScenesExplorer:
                 # point cloud.
                 radar_cs_record = self.nusc.get('calibrated_sensor', sd_record['calibrated_sensor_token'])
                 ref_cs_record = self.nusc.get('calibrated_sensor', ref_sd_record['calibrated_sensor_token'])
-                velocities = pc.points[8:10, :]  # Compensated velocity
-                velocities = np.vstack((velocities, np.zeros(pc.points.shape[1])))
-                velocities = np.dot(Quaternion(radar_cs_record['rotation']).rotation_matrix, velocities)
-                velocities = np.dot(Quaternion(ref_cs_record['rotation']).rotation_matrix.T, velocities)
-                velocities[2, :] = np.zeros(pc.points.shape[1])
+                # velocities = pc.points[8:10, :]  # Compensated velocity
+                # velocities = np.vstack((velocities, np.zeros(pc.points.shape[1])))
+                # velocities = np.dot(Quaternion(radar_cs_record['rotation']).rotation_matrix, velocities)
+                # velocities = np.dot(Quaternion(ref_cs_record['rotation']).rotation_matrix.T, velocities)
+                # velocities[2, :] = np.zeros(pc.points.shape[1])
 
             # By default we render the sample_data top down in the sensor frame.
             # This is slightly inaccurate when rendering the map as the sensor frame may not be perfectly upright.
@@ -1451,15 +1451,15 @@ class NuScenesExplorer:
             scatter = ax.scatter(points[0, :], points[1, :], c=colors, s=point_scale)
 
             # Show velocities.
-            if sensor_modality == 'radar':
-                points_vel = view_points(pc.points[:3, :] + velocities, viewpoint, normalize=False)
-                deltas_vel = points_vel - points
-                deltas_vel = 6 * deltas_vel  # Arbitrary scaling
-                max_delta = 20
-                deltas_vel = np.clip(deltas_vel, -max_delta, max_delta)  # Arbitrary clipping
-                colors_rgba = scatter.to_rgba(colors)
-                for i in range(points.shape[1]):
-                    ax.arrow(points[0, i], points[1, i], deltas_vel[0, i], deltas_vel[1, i], color=colors_rgba[i])
+            # if sensor_modality == 'radar':
+            #     points_vel = view_points(pc.points[:3, :] + velocities, viewpoint, normalize=False)
+            #     deltas_vel = points_vel - points
+            #     deltas_vel = 6 * deltas_vel  # Arbitrary scaling
+            #     max_delta = 20
+            #     deltas_vel = np.clip(deltas_vel, -max_delta, max_delta)  # Arbitrary clipping
+            #     colors_rgba = scatter.to_rgba(colors)
+            #     for i in range(points.shape[1]):
+            #         ax.arrow(points[0, i], points[1, i], deltas_vel[0, i], deltas_vel[1, i], color=colors_rgba[i])
 
             # Show ego vehicle.
             ax.plot(0, 0, 'x', color='red')

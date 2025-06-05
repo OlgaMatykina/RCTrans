@@ -268,7 +268,7 @@ class LoadRadarPointsMultiSweepsRadialSpeed(object):
     def __call__(self, results):
         '''Load radar points from a single sweep and compute vx, vy from radial speed.'''
 
-        sweeps = results['radar_path']  # list
+        sweeps = [results['radar_info']['RADAR_FRONT']['data_path']]  # list
 
         all_points = []
 
@@ -302,9 +302,9 @@ class LoadRadarPointsMultiSweepsRadialSpeed(object):
         points = RadarPoints(points, points_dim=points.shape[-1], attribute_dims=None)
 
         results['radar'] = points
-        results['points'] = points
+        # results['points'] = points
 
-        results['pts_filename'] = results['radar_path'][0]
+        # results['pts_filename'] = results['radar_path'][0]
 
         return results
 

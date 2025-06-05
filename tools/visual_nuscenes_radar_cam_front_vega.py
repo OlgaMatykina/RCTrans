@@ -139,7 +139,8 @@ class Vega:
         assert self.ann_file.endswith('.pkl'), 'Expected a .pkl annotation file.'
         data_list = mmcv.load(self.ann_file)
         if not isinstance(data_list, list):
-            raise TypeError(f'Expected annotation list, got {type(data_list)}')
+            # raise TypeError(f'Expected annotation list, got {type(data_list)}')
+            data_list = data_list['infos']
         return data_list
 
     @property
