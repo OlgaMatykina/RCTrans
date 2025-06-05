@@ -41,7 +41,7 @@ def pos2embed(pos, num_pos_feats=128, temperature=10000):
     return posemb
 
 @HEADS.register_module()
-class RCTransHead_cam(AnchorFreeHead):
+class RCTransHead_cam_radar_ones(AnchorFreeHead):
     """Implements the DETR transformer head.
     See `paper: End-to-End Object Detection with Transformers
     <https://arxiv.org/pdf/2005.12872>`_ for details.
@@ -144,7 +144,7 @@ class RCTransHead_cam(AnchorFreeHead):
         self.bg_cls_weight = 0
         self.sync_cls_avg_factor = sync_cls_avg_factor
         class_weight = loss_cls.get('class_weight', None)
-        if class_weight is not None and (self.__class__ is RCTransHead_cam):
+        if class_weight is not None and (self.__class__ is RCTransHead_cam_radar_ones):
             assert isinstance(class_weight, float), 'Expected ' \
                 'class_weight to have type float. Found ' \
                 f'{type(class_weight)}.'
@@ -206,7 +206,7 @@ class RCTransHead_cam(AnchorFreeHead):
                                        dict(type='ReLU', inplace=True))
         self.num_pred = 6
         self.normedlinear = normedlinear
-        super(RCTransHead_cam, self).__init__(num_classes, in_channels, init_cfg = init_cfg)
+        super(RCTransHead_cam_radar_ones, self).__init__(num_classes, in_channels, init_cfg = init_cfg)
 
         self.loss_cls = build_loss(loss_cls)
         self.loss_bbox = build_loss(loss_bbox)
@@ -282,18 +282,18 @@ class RCTransHead_cam(AnchorFreeHead):
 
             )
         
-        # self.memory_embed_radar = nn.Sequential(
-        #         nn.Conv2d(self.in_channels_radar, self.embed_dims, 3, padding=1),
-        #         nn.ReLU(),
-        #         nn.Conv2d(self.embed_dims, self.embed_dims, 3, padding=1),
+        self.memory_embed_radar = nn.Sequential(
+                nn.Conv2d(self.in_channels_radar, self.embed_dims, 3, padding=1),
+                nn.ReLU(),
+                nn.Conv2d(self.embed_dims, self.embed_dims, 3, padding=1),
 
-        #     )
+            )
         
-        # self.bev_embedding = nn.Sequential(
-        #     nn.Linear(self.hidden_dim * 2, self.hidden_dim),
-        #     nn.ReLU(inplace=True),
-        #     nn.Linear(self.hidden_dim, self.hidden_dim)
-        # )
+        self.bev_embedding = nn.Sequential(
+            nn.Linear(self.hidden_dim * 2, self.hidden_dim),
+            nn.ReLU(inplace=True),
+            nn.Linear(self.hidden_dim, self.hidden_dim)
+        )
 
         self.rv_embedding = nn.Sequential(
             nn.Linear(self.depth_num * 3, self.hidden_dim * 4),
@@ -417,7 +417,7 @@ class RCTransHead_cam(AnchorFreeHead):
         else:
             temp_reference_point = (self.memory_reference_point - self.pc_range[:3]) / (self.pc_range[3:6] - self.pc_range[0:3])
 
-        temp_rvpos = self.query_embed(temp_reference_point, img_metas)
+        temp_bevpos, temp_rvpos = self.query_embed(temp_reference_point, img_metas)
         # temp_pos = bev_query_embeds + rv_query_embeds
 
         temp_memory = self.memory_embedding
@@ -430,12 +430,12 @@ class RCTransHead_cam(AnchorFreeHead):
 
             memory_ego_motion = torch.cat([self.memory_velo, self.memory_timestamp, self.memory_egopose[..., :3, :].flatten(-2)], dim=-1).float()
             memory_ego_motion = nerf_positional_encoding(memory_ego_motion)
-            # temp_bevpos = self.ego_pose_pe(temp_bevpos, memory_ego_motion)
+            temp_bevpos = self.ego_pose_pe(temp_bevpos, memory_ego_motion)
             temp_rvpos = self.ego_pose_pe(temp_rvpos, memory_ego_motion)
 
             temp_memory = self.ego_pose_memory(temp_memory, memory_ego_motion)
 
-        # temp_bevpos += self.time_embedding(pos2posemb1d(self.memory_timestamp).float())
+        temp_bevpos += self.time_embedding(pos2posemb1d(self.memory_timestamp).float())
         temp_rvpos += self.time_embedding(pos2posemb1d(self.memory_timestamp).float())
 
 
@@ -447,33 +447,33 @@ class RCTransHead_cam(AnchorFreeHead):
             temp_memory = temp_memory[:, self.num_propagated:]
 
 
-        return tgt, reference_points, temp_memory, temp_rvpos, rec_ego_pose
+        return tgt, reference_points, temp_memory, temp_bevpos, temp_rvpos, rec_ego_pose
 
-    def temporal_alignment_pos(self, query_rvpos, reference_points):
-        B = query_rvpos.size(0)
-        rec_ego_pose = torch.eye(4, device=query_rvpos.device).unsqueeze(0).unsqueeze(0).repeat(B, query_rvpos.size(1), 1, 1)
+    def temporal_alignment_pos(self, query_bevpos, query_rvpos, reference_points):
+        B = query_bevpos.size(0)
+        rec_ego_pose = torch.eye(4, device=query_bevpos.device).unsqueeze(0).unsqueeze(0).repeat(B, query_bevpos.size(1), 1, 1)
         if self.with_ego_pos:
             rec_ego_motion = torch.cat([torch.zeros_like(reference_points[...,:3]), rec_ego_pose[..., :3, :].flatten(-2)], dim=-1)
             rec_ego_motion = nerf_positional_encoding(rec_ego_motion)
-            # query_bevpos = self.ego_pose_pe(query_bevpos, rec_ego_motion)
+            query_bevpos = self.ego_pose_pe(query_bevpos, rec_ego_motion)
             query_rvpos = self.ego_pose_pe(query_rvpos, rec_ego_motion)
 
-        # query_bevpos += self.time_embedding(pos2posemb1d(torch.zeros_like(reference_points[...,:1])))
+        query_bevpos += self.time_embedding(pos2posemb1d(torch.zeros_like(reference_points[...,:1])))
         query_rvpos += self.time_embedding(pos2posemb1d(torch.zeros_like(reference_points[...,:1])))
-        return query_rvpos
+        return query_bevpos, query_rvpos
 
-    # def coords_bev(self, x_radar):
-    #     x_size, y_size = (
-    #         x_radar.shape[-2],
-    #         x_radar.shape[-1]
-    #     )
-    #     meshgrid = [[0, x_size - 1, x_size], [0, y_size - 1, y_size]]
-    #     batch_y, batch_x = torch.meshgrid(*[torch.linspace(it[0], it[1], it[2]) for it in meshgrid])
-    #     batch_x = (batch_x + 0.5) / x_size
-    #     batch_y = (batch_y + 0.5) / y_size
-    #     coord_base = torch.cat([batch_x[None], batch_y[None]], dim=0)
-    #     coord_base = coord_base.view(2, -1).transpose(1, 0) # (H*W, 2)
-    #     return coord_base
+    def coords_bev(self, x_radar):
+        x_size, y_size = (
+            x_radar.shape[-2],
+            x_radar.shape[-1]
+        )
+        meshgrid = [[0, x_size - 1, x_size], [0, y_size - 1, y_size]]
+        batch_y, batch_x = torch.meshgrid(*[torch.linspace(it[0], it[1], it[2]) for it in meshgrid])
+        batch_x = (batch_x + 0.5) / x_size
+        batch_y = (batch_y + 0.5) / y_size
+        coord_base = torch.cat([batch_x[None], batch_y[None]], dim=0)
+        coord_base = coord_base.view(2, -1).transpose(1, 0) # (H*W, 2)
+        return coord_base
     
     def prepare_for_dn(self, batch_size, reference_points, img_metas):
         if self.training and self.with_dn:
@@ -569,7 +569,7 @@ class RCTransHead_cam(AnchorFreeHead):
 
         # Names of some parameters in has been changed.
         version = local_metadata.get('version', None)
-        if (version is None or version < 2) and self.__class__ is RCTransHead_cam:
+        if (version is None or version < 2) and self.__class__ is RCTransHead_cam_radar_ones:
             convert_dict = {
                 '.self_attn.': '.attentions.0.',
                 # '.ffn.': '.ffns.0.',
@@ -668,9 +668,9 @@ class RCTransHead_cam(AnchorFreeHead):
     def query_embed(self, ref_points, img_metas):
         ref_points = inverse_sigmoid(ref_points.clone()).sigmoid()
         # ref_points = ref_points.clone()
-        # bev_embeds = self._bev_query_embed(ref_points, img_metas)
+        bev_embeds = self._bev_query_embed(ref_points, img_metas)
         rv_embeds = self._rv_query_embed(ref_points, img_metas)
-        return rv_embeds
+        return bev_embeds, rv_embeds
     
     def forward(self, memory_center, img_metas, topk_indexes=None,  **data):
         """Forward function.
@@ -690,45 +690,44 @@ class RCTransHead_cam(AnchorFreeHead):
         self.pre_update_memory(data)
         # new code #
         x_img = data['img_feats']
-        # x_radar = data['radar_feats']
         B, N, C, H, W = x_img.shape
+        x_radar = torch.zeros((B, self.in_channels_radar, 128, 128), device=x_img.device)
         
         memory_img = self.memory_embed_img(x_img.reshape(B*N, C, H, W))
-        # memory_radar = self.memory_embed_radar(x_radar)
+        memory_radar = self.memory_embed_radar(x_radar)
 
         rv_pos_embeds = self._rv_pe(memory_img, img_metas)
-        # bev_pos_embeds = self.bev_embedding(pos2embed(self.coords_bev(x_radar).to(x_radar.device), num_pos_feats=self.hidden_dim))
+        bev_pos_embeds = self.bev_embedding(pos2embed(self.coords_bev(x_radar).to(x_radar.device), num_pos_feats=self.hidden_dim))
         # pos_embed and memory
-        bs, c, h, w = memory_img.shape
-        bs = B
-        # bev_memory = rearrange(memory_radar, "bs c h w -> (h w) bs c") # [bs, c, h, w] -> [h*w, bs, c]
+        bs, c, h, w = memory_radar.shape
+        bev_memory = rearrange(memory_radar, "bs c h w -> (h w) bs c") # [bs, c, h, w] -> [h*w, bs, c]
         rv_memory = rearrange(memory_img, "(bs v) c h w -> (v h w) bs c", bs=bs)
 
-        # bev_pos_embed = bev_pos_embeds.unsqueeze(1).repeat(1, bs, 1) # [bs, n, c, h, w] -> [n*h*w, bs, c]
+        bev_pos_embed = bev_pos_embeds.unsqueeze(1).repeat(1, bs, 1) # [bs, n, c, h, w] -> [n*h*w, bs, c]
         rv_pos_embed = rearrange(rv_pos_embeds, "(bs v) h w c -> (v h w) bs c", bs=bs)
 
-        memory, pos_embed = rv_memory.transpose(1,0), rv_pos_embed.transpose(1,0)
+        memory, pos_embed = torch.cat([bev_memory, rv_memory], dim=0).transpose(1,0), torch.cat([bev_pos_embed, rv_pos_embed], dim=0).transpose(1,0)
         #############
 
         # query
         reference_points = self.reference_points.weight
         reference_points, attn_mask, mask_dict = self.prepare_for_dn(B, reference_points, img_metas)
 
-        rv_query_pos = self.query_embed(reference_points, img_metas)
+        bev_query_pos, rv_query_pos = self.query_embed(reference_points, img_metas)
       
-        tgt = torch.zeros_like(rv_query_pos)
+        tgt = torch.zeros_like(bev_query_pos)
         ############
         
         # prepare for the tgt and query_pos using mln.
-        tgt, reference_points, temp_memory, temp_rvpos, rec_ego_pose = self.temporal_alignment(tgt, reference_points, img_metas)
+        tgt, reference_points, temp_memory, temp_bevpos, temp_rvpos, rec_ego_pose = self.temporal_alignment(tgt, reference_points, img_metas)
 
-        # bev_query_pos = torch.cat([bev_query_pos, temp_bevpos[:, :self.num_propagated]], dim=1)
+        bev_query_pos = torch.cat([bev_query_pos, temp_bevpos[:, :self.num_propagated]], dim=1)
         rv_query_pos = torch.cat([rv_query_pos, temp_rvpos[:, :self.num_propagated]], dim=1)
-        # temp_bevpos = temp_bevpos[:, self.num_propagated:]
+        temp_bevpos = temp_bevpos[:, self.num_propagated:]
         temp_rvpos = temp_rvpos[:, self.num_propagated:]
 
         # transformer here is a little different from PETR
-        outputs_classes, outputs_coords, outs_dec = self.transformer(memory, tgt, [rv_query_pos], pos_embed, attn_mask, temp_memory, [temp_rvpos], \
+        outputs_classes, outputs_coords, outs_dec = self.transformer(memory, tgt, [bev_query_pos, rv_query_pos], pos_embed, attn_mask, temp_memory, [temp_bevpos, temp_rvpos], \
                                         self.cls_branches, self.reg_branches, reference_points, img_metas, self.query_embed, self.temporal_alignment_pos)
 
         all_cls_scores = torch.stack(outputs_classes)

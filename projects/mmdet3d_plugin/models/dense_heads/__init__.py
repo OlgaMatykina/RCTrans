@@ -6,3 +6,4 @@ from .yolox_head import YOLOXHeadCustom
 from .rctrans_head import RCTransHead
 from .rctrans_head_cam import RCTransHead_cam
 from .rctrans_head_radar import RCTransHead_radar
+from .rctrans_head_cam_radar_ones import RCTransHead_cam_radar_ones
