@@ -20,3 +20,4 @@ __pycache__/
 wandb/
 docker/start.local.sh
 show_dir/
+results/
