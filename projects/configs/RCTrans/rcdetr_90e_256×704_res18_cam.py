@@ -28,7 +28,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 4
+batch_size = 8
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -291,7 +291,7 @@ data = dict(
 
 optimizer = dict(
     type='AdamW', 
-    lr=4e-4, # bs 8: 2e-4 || bs 16: 4e-4
+    lr=4e-6, # bs 8: 2e-4 || bs 16: 4e-4
     paramwise_cfg=dict(
         custom_keys={
             'img_backbone': dict(lr_mult=0.1), # set to 0.1 always better when apply 2D pretrained.
@@ -320,7 +320,7 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
 checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
-resume_from='work_dirs/rctrans_only_camera_from_res18/epoch_1.pth'
+load_from='ckpts/res18.pth'
 # resume_from='ckpts/res18.pth'
 # resume_from=None
 # resume_from='work_dirs/rctrans_on_full_from_init/epoch_12.pth'
@@ -343,7 +343,7 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='flash-attn RCTrans only camera on full from res18.pth',     # Имя эксперимента
+                name='flash-attn aicenter1 RCTrans only camera on full from res18.pth',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',

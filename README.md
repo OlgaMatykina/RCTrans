@@ -82,7 +82,7 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py 1
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py 1 --work-dir work_dirs/rctrans_on_full_from_init/
 
-bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam.py 1 --work-dir work_dirs/tmp/
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam.py 1 --work-dir work_dirs/rctrans_cam_res18/
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_radar.py 1 --work-dir work_dirs/rctrans_radar/
 
