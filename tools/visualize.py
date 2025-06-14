@@ -3,9 +3,10 @@ import tqdm
 import json
 from visual_nuscenes_radar_cam_front import NuScenes
 use_gt = False
-out_dir = '/home/docker_rctrans/RCTrans/result_vis/tmp3/'
+out_dir = '/home/docker_rctrans/RCTrans/result_vis/tmp4/'
 # result_json = "/home/docker_rctrans/test/rcdetr_90e_256×704_dino/Sun_May_25_03_14_49_2025/pts_bbox/results_nusc"
-result_json = "/home/docker_rctrans/test/rcdetr_90e_256×704_dino_vega2/Tue_Jun__3_09_33_59_2025/pts_bbox/results_nusc"
+# result_json = "/home/docker_rctrans/test/rcdetr_90e_256×704_dino_vega2/Tue_Jun_10_10_49_06_2025/pts_bbox/results_nusc"
+result_json = "/home/docker_rctrans/test/rcdetr_90e_256×704_dino_vega2/Tue_Jun_10_12_06_10_2025/pts_bbox/results_nusc"
 
 dataroot='/home/docker_rctrans/HPR3/nuscenes/'
 
@@ -20,7 +21,7 @@ with open('{}.json'.format(result_json)) as f:
     table = json.load(f)
 tokens = list(table['results'].keys())
 index=0
-for token in tqdm.tqdm(tokens): #[10:15]):
+for token in tqdm.tqdm(tokens[25:35]):
     index += 1
     if use_gt:
         nusc.render_sample(token, out_path = out_dir+str(index)+"_gt.png", verbose=False)
