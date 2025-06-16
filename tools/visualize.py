@@ -261,13 +261,82 @@ def parse_args():
     parser.add_argument('--out-dir', type=str, required=True, help='Output directory for visualizations')
     parser.add_argument('--result-json', type=str, help='Path to result JSON file')
     parser.add_argument('--dataroot', type=str, required=True, help='Path to NuScenes dataset')
-    parser.add_argument('--token-type', type=str, choices=['night', 'rain'], required=True, help='Token group to visualize')
+    parser.add_argument('--token-type', type=str, choices=['cars', 'night', 'rain'], required=True, help='Token group to visualize')
 
     return parser.parse_args()
 
 def main():
     args = parse_args()
     os.makedirs(args.out_dir, exist_ok=True)
+
+    cars_tokens = ['381fe530586b4c189e10cbefbfb0e773',
+ 'f0e4797551024f9487a016ee9d9e29e1',
+ '72f030bd5dd142d497c090dc04bb5697',
+ 'dbffcc96729b420380ace0e08ad587d5',
+ 'cf5c4b437daf4bb3ad68d0f88ea7bff2',
+ '561cf9acfda645b79bc52ec82537970c',
+ 'fd534bf0c87d4d4cb891f0fc6f41a6a9',
+ 'ff98be19bcf9436cad14f28ff63cb501',
+ '4b6fcdc1549847c395d07fefcbdc16eb',
+ 'b1eea1e3d59e4afdaa6d29481480d974',
+ '05cf2a68a2cf4ff1838034f8ecae0c82',
+ 'b04b95006e24460bacaaf80e299dff01',
+ 'b006ca82a2654951ae8f42300f66f3c4',
+ '3307d1211dfd442db4a6ae544c2ae197',
+ '50d86a5cd45440c89e895a5d20ea5267',
+ 'fe944294f6a44b87a4da95136f86bb79',
+ 'a9b8176bf0b546a4bc46afc631979805',
+ '0e8782aa721545caabc7073d32fb1fb1',
+ '8d1c7b2b85fe4befb66efe9e05e0d939',
+ 'd22de14af8cc4007994efda8354c939b',
+ '5f88b9a41f264ebbac7976bf4c796d21',
+ '6be3fbcf5c224508adb27b4b703b6625',
+ '9e9808fe898648e1b0bbf09b1a30f0d4',
+ 'ae3d3b5cb4424e7ab501a5d6f0a4980a',
+ '88a6b5e35eb44deba6b1065d74b0a3c4',
+ 'a687809bdfff490198d3b39bfc4bd42b',
+ '0a0d6b8c2e884134a3b48df43d54c36a',
+ '9e7683e8586542a1b6032980c45f15ce',
+ 'b9ea04a6121d4a8bb00199b885aa5ef0',
+ '08ec4b7fcdb5494c8da174770c1d9245',
+ '49823b270a62468397f3265172dcc6bf',
+ '4f2578e3107f4ad79f88a61b28893916',
+ 'f3491dccffc3428aac243872cbfe5072',
+ '135bf33890ba4ca2984a931444923eda',
+ '5d773ca713f54023b34cd4718a5ee293',
+ '20d02a3110fb47348e175a61ad157875',
+ '0490bd92372a4a2d98c7136ba6ebcfce',
+ '08d95280dd2f42d98a4a6e33dff8e815',
+ '4f9ad42bb4a24970b770ba0a87baf47a',
+ '33c965ece87842c2ac898543d26dad5f',
+ 'e32db3f8b6c244c2be60b6d7db30ccc3',
+ 'f38ef51177c84c2a9fa32584b79e601e',
+ 'c62b6ac878934607be0c524a02f1692b',
+ '6c662b1258e34752be332dcc1eccb7a8',
+ '5c7c23122dd94c70b8ab5528f27ba117',
+ '7461eb9987354c5db09f9203786b2324',
+ '4fc9bbe6198c4b8e837fd2ae0de6a4e2',
+ 'c48c3dfec8b5454ab97303a00365a77b',
+ 'c7b18ce7027c4cc3b2068fbf46860b3f',
+ '94126983bc0c4de89fb27cefb81f24ef',
+ 'dafe7793990d41a0ae1e50260899f8b4',
+ 'c900549f484c4c03872e35d4d927f5d7',
+ '868280bdd9bf4ec49d2dd6d4880d4bee',
+ 'e84d37c300094d51aa2917b4ac006da5',
+ 'cf2601d5aaee4ab8a700029a33d49be6',
+ '4bc57fd309b8495fa222abc3263b47e5',
+ '7e034567ff9e4c22819fd59c4cb845da',
+ 'fc2d1d2139ae40a3b781f70004a8fba8',
+ 'a7831d4d1db54053a501d0418545fee2',
+ '8b57f73177694aee8d393b945df0cd38',
+ '2c253adbce79406c962b9382236768da',
+ '5b29d1a2b0e646368622dee5e8fa5108',
+ '1e82fd0644c142a2be36770ee29815aa',
+ '0ad5d20390ec43f59d210c1a3a11b23d',
+ 'd7bea9a3552b40e29d42324108dff575',
+ 'a572dd2e95e94e4db66bb5dbfaf870b5',
+ 'c143943fd6e246448eab88ce1a0aeda9',
+ '8c4d447e628c4393839187bcfa0cbd76']
 
     night_tokens = ['cb4504edb87a40d4b650cd5860f6c3b7',
  'a945d7d02c7a4ef98f1b5aaa1557f546',
@@ -355,9 +424,9 @@ def main():
         table = json.load(f)
 
 
-    # if args.token_type == 'cars':
-    #     selected_tokens = cars_tokens
-    if args.token_type == 'night':
+    if args.token_type == 'cars':
+        selected_tokens = cars_tokens
+    elif args.token_type == 'night':
         selected_tokens = night_tokens
     else:
         selected_tokens = rain_tokens
