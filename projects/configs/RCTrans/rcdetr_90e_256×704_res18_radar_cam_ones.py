@@ -39,7 +39,7 @@ collect_keys=['lidar2img', 'intrinsics', 'extrinsics','timestamp', 'img_timestam
 input_modality = dict(
     use_lidar=False,
     use_camera=True,
-    use_radar=True,
+    use_radar=False,
     use_map=False,
     use_external=True)
 model = dict(
@@ -49,7 +49,7 @@ model = dict(
     num_frame_losses=num_frame_losses,
     use_grid_mask=True,
     # img encoder
-    # img_backbone=dict(
+        # img_backbone=dict(
     #     init_cfg=dict(
     #         type='Pretrained', checkpoint="/home/docker_rctrans/RCTrans/ckpts/resnet18-nuimages-pretrained-e2e.pth",
     #         prefix='backbone.'),       
@@ -117,7 +117,7 @@ model = dict(
     ),
     # detect head
     pts_bbox_head=dict(
-        type='RCTransHead_radar',
+        type='RCTransHead_radar_cam_ones',
         num_classes=10,
         in_channels_img=256,
         in_channels_radar=64,
@@ -138,7 +138,7 @@ model = dict(
         transformer=dict(
             type='RCTransTemporalTransformer',
             decoder=dict(
-                type='RCTransTransformerDecoder_radar',
+                type='RCTransTransformerDecoder',
                 return_intermediate=True,
                 num_layers=6,
                 transformerlayers=dict(
@@ -299,7 +299,7 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=4, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=8, grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 lr_config = dict(
     policy='CosineAnnealing',
@@ -320,11 +320,11 @@ find_unused_parameters=False #### when use checkpoint, find_unused_parameters mu
 # checkpoint_config = dict(interval=1001, max_keep_ckpts=3)
 checkpoint_config = dict(interval=1, max_keep_ckpts=3)
 runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
-load_from='ckpts/res18.pth'
+# resume_from='work_dirs/rctrans_only_camera_from_res18/epoch_1.pth'
 # resume_from='ckpts/res18.pth'
-# resume_from=None
-# resume_from='work_dirs/rctrans_on_full_from_init/epoch_12.pth'
 resume_from=None
+# resume_from='work_dirs/rctrans_on_full_from_init/epoch_12.pth'
+load_from='ckpts/res18.pth'
 # custom_hooks = [dict(type='EMAHook')]
 custom_hooks = [
     dict(type='EMAHook', momentum=4e-5, priority='ABOVE_NORMAL'),
@@ -343,7 +343,7 @@ log_config = dict(
             type='WandbLoggerHook',
             init_kwargs=dict(
                 project='radar-camera',   # Название проекта в WandB
-                name='RCTrans only radar on full from res18',     # Имя эксперимента
+                name='flash-attn RCTrans radar_cam_ones on full from res18.pth',     # Имя эксперимента
                 config=dict(                # Дополнительные настройки эксперимента
                     batch_size=batch_size,
                     model='rcdetr',

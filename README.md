@@ -84,9 +84,14 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py 1
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam.py 1 --work-dir work_dirs/rctrans_cam_res18/
 
-bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_radar.py 1 --work-dir work_dirs/rctrans_radar/
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_radar.py 1 --work-dir work_dirs/rctrans_radar_res18/
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam.py 1 --work-dir work_dirs/rctrans_only_camera_from_res18/
+
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam_radar_ones.py 1 --work-dir work_dirs/rctrans_cam_radar_ones_from_res18/
+
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_radar_cam_ones.py 1 --work-dir work_dirs/rctrans_radar_cam_ones_from_res18/
+
 
 ```
 Evaluation
@@ -101,9 +106,20 @@ bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18.py wo
 
 bash mmdetection3d/tools/dist_test.sh projects/configs/MyFirstModel/pointpillar.py work_dirs/pointpillar/epoch_1.pth 1 --eval bbox
 
-bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam.py ckpts/res18.pth 1 --eval bbox
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam.py work_dirs/rctrans_cam_res18/best_pts_bbox_NuScenes/NDS_epoch_63.pth 1 --eval bbox
 
 bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_radar.py ckpts/res18.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_cam_radar_ones.py work_dirs/rctrans_cam_radar_ones_from_res18/best_pts_bbox_NuScenes/NDS_epoch_17.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_radar_cam_ones.py ckpts/res18.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_radar_cam_ones.py work_dirs/rctrans_radar_cam_ones_from_res18/best_pts_bbox_NuScenes/NDS_epoch_60.pth 1 --eval bbox
+
+bash tools/dist_test.sh projects/configs/RCTrans/rcdetr_90e_256×704_res18_radar.py work_dirs/rctrans_radar_res18/best_pts_bbox_NuScenes/NDS_epoch_33.pth 1 --eval bbox
+
+
+
 
 ```
 Tracking

@@ -41,7 +41,7 @@ def pos2embed(pos, num_pos_feats=128, temperature=10000):
     return posemb
 
 @HEADS.register_module()
-class RCTransHead_cam_radar_ones(AnchorFreeHead):
+class RCTransHead_radar_cam_ones(AnchorFreeHead):
     """Implements the DETR transformer head.
     See `paper: End-to-End Object Detection with Transformers
     <https://arxiv.org/pdf/2005.12872>`_ for details.
@@ -144,7 +144,7 @@ class RCTransHead_cam_radar_ones(AnchorFreeHead):
         self.bg_cls_weight = 0
         self.sync_cls_avg_factor = sync_cls_avg_factor
         class_weight = loss_cls.get('class_weight', None)
-        if class_weight is not None and (self.__class__ is RCTransHead_cam_radar_ones):
+        if class_weight is not None and (self.__class__ is RCTransHead_radar_cam_ones):
             assert isinstance(class_weight, float), 'Expected ' \
                 'class_weight to have type float. Found ' \
                 f'{type(class_weight)}.'
@@ -206,7 +206,7 @@ class RCTransHead_cam_radar_ones(AnchorFreeHead):
                                        dict(type='ReLU', inplace=True))
         self.num_pred = 6
         self.normedlinear = normedlinear
-        super(RCTransHead_cam_radar_ones, self).__init__(num_classes, in_channels, init_cfg = init_cfg)
+        super(RCTransHead_radar_cam_ones, self).__init__(num_classes, in_channels, init_cfg = init_cfg)
 
         self.loss_cls = build_loss(loss_cls)
         self.loss_bbox = build_loss(loss_bbox)
@@ -569,7 +569,7 @@ class RCTransHead_cam_radar_ones(AnchorFreeHead):
 
         # Names of some parameters in has been changed.
         version = local_metadata.get('version', None)
-        if (version is None or version < 2) and self.__class__ is RCTransHead_cam_radar_ones:
+        if (version is None or version < 2) and self.__class__ is RCTransHead_radar_cam_ones:
             convert_dict = {
                 '.self_attn.': '.attentions.0.',
                 # '.ffn.': '.ffns.0.',
@@ -689,9 +689,10 @@ class RCTransHead_cam_radar_ones(AnchorFreeHead):
         # zero init the memory bank
         self.pre_update_memory(data)
         # new code #
-        x_img = data['img_feats']
+        
+        x_radar = data['radar_feats']
+        x_img = torch.ones((x_radar.shape[0], 6, 256, 16, 44), device=x_radar.device)
         B, N, C, H, W = x_img.shape
-        x_radar = torch.ones((B, self.in_channels_radar, 128, 128), device=x_img.device)
         
         memory_img = self.memory_embed_img(x_img.reshape(B*N, C, H, W))
         memory_radar = self.memory_embed_radar(x_radar)
