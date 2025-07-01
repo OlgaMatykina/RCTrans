@@ -81,8 +81,7 @@ class RCDETR(MVXTwoStageDetector):
                  radar_dense_encoder=None,
                  radar_backbone=None,
                  radar_neck=None,
-                 latent_dim=256,
-                 dino_backbone=True,
+                 latent_dim=1024,
                  ):
         super(RCDETR, self).__init__(pts_voxel_layer, pts_voxel_encoder,
                              pts_middle_encoder, pts_fusion_layer,
@@ -125,36 +124,19 @@ class RCDETR(MVXTwoStageDetector):
 
         # for param in self.parameters():
         #     param.requires_grad = False
-        
-        self.dino_backbone = builder.build_backbone(dino_backbone)
 
-        self.img_feats_compr_4 = nn.Sequential(
-            nn.Conv2d(in_channels=self.dino_backbone.embed_dim, out_channels=latent_dim,
-                        kernel_size=1, stride=1, bias=True),
-            nn.InstanceNorm2d(latent_dim),
-            nn.GELU(),
-        )
-        self.img_feats_compr_8 = nn.Sequential(
-            nn.Conv2d(in_channels=self.dino_backbone.embed_dim, out_channels=latent_dim,
-                        kernel_size=1, stride=1, bias=True),
-            nn.InstanceNorm2d(latent_dim),
-            nn.GELU(),
-        )
-        self.img_feats_compr_16 = nn.Sequential(
-            nn.Conv2d(in_channels=self.dino_backbone.embed_dim, out_channels=latent_dim,
-                        kernel_size=1, stride=1, bias=True),
-            nn.InstanceNorm2d(latent_dim),
-            nn.GELU(),
-        )
-        self.img_feats_compr_32 = nn.Sequential(
-            nn.Conv2d(in_channels=self.dino_backbone.embed_dim, out_channels=latent_dim,
-                        kernel_size=1, stride=1, bias=True),
-            nn.InstanceNorm2d(latent_dim),
-            nn.GELU(),
-        )
-
-        self.dino_ms_fuse = DinoMulti2SingleScale(in_channels=4 * latent_dim, out_channels=latent_dim)
-        self.dino_weight = nn.Parameter(torch.tensor(0.05))
+        # if pretrained_vit:
+        #     if num_heads == 6:
+        #         # print("loading dinov2 VIT-S14 checkpoint... ")
+        #         url = 'https://dl.fbaipublicfiles.com/dinov2/dinov2_vits14/dinov2_vits14_pretrain.pth'
+        #         # state_dict = torch.hub.load_state_dict_from_url(url, map_location=torch.device('cpu'))
+        #     else:
+        #         # print("loading dinov2 VIT-B14 checkpoint... ")
+        #         url = 'https://dl.fbaipublicfiles.com/dinov2/dinov2_vitb14/dinov2_vitb14_pretrain.pth'
+        #         # state_dict = torch.hub.load_state_dict_from_url(url, map_location=torch.device('cpu'))
+        state_dict = torch.load("/home/docker_rctrans/RCTrans/ckpts/dinov2_for_torch1.pth", map_location="cpu")
+        # state_dict = torch.load("/media/matykina_ov/FastSSD/RCTrans/ckpts/dinov2_for_torch1.pth", map_location="cpu")
+        self.img_backbone.load_state_dict(state_dict=state_dict, strict=False)
 
     def extract_img_feat(self, img, len_queue=1, training_mode=False): #dinov2
         """Extract features of images."""
@@ -171,24 +153,17 @@ class RCDETR(MVXTwoStageDetector):
             if self.use_grid_mask:
                 img = self.grid_mask(img)
 
-            img_feats = self.img_backbone(img)
-            if isinstance(img_feats, dict):
-                img_feats = list(img_feats.values())
+            # img_feats = self.img_backbone(img)
+            # if isinstance(img_feats, dict):
+            #     img_feats = list(img_feats.values())
 
             # print('RESNET FEATS', img_feats[0].shape, img_feats[1].shape)
     
             # if self.encoder_type == 'dino_v2':
             img_reshaped = F.interpolate(img, size=(224, 448), mode='bilinear', align_corners=False)
-            img_dinov2_feats, _ = self.dino_backbone(img_reshaped)
+            img_dinov2_feats= self.img_backbone.get_intermediate_layers(img_reshaped, reshape=True)[0]
+            # print('dinov2_shape', img_dinov2_feats.shape)
 
-            # compress dino feats down to 128 channels
-            feats_4_ = self.img_feats_compr_4(img_dinov2_feats[0])
-            feats_8_ = self.img_feats_compr_8(img_dinov2_feats[1])
-            feats_16_ = self.img_feats_compr_16(img_dinov2_feats[2])
-            feats_32_ = self.img_feats_compr_32(img_dinov2_feats[3])
-
-            # combine all feature maps into one...
-            img_dinov2_feats = self.dino_ms_fuse(x_4=feats_4_, x_8=feats_8_, x_16=feats_16_, x_32=feats_32_)
 
             # print(img_feats.shape)
             img_dinov2_feats_level2 = F.interpolate(img_dinov2_feats, size=(img_reshaped.shape[2]//14, img_reshaped.shape[3]//10), mode='bilinear', align_corners=False)
@@ -200,9 +175,8 @@ class RCDETR(MVXTwoStageDetector):
             # if isinstance(img_feats, dict):
             #     img_feats = list(img_feats.values())
 
-            img_feats0 = img_feats[0]
-            img_feats0 = (1 - self.dino_weight) * img_feats0 + self.dino_weight * img_dinov2_feats_level2
-            img_feats = [img_feats0, img_feats[1]]
+            # print('dinov2_shape', img_dinov2_feats.shape)
+            img_feats = [img_dinov2_feats_level2]
         else:
             return None
         if self.with_img_neck:

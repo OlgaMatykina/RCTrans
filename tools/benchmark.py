@@ -16,6 +16,7 @@ from mmdet3d.models import build_detector
 import os
 import sys
 sys.path.append('./')
+sys.path.append('/home/docker_rctrans/RCTrans')
 def parse_args():
     parser = argparse.ArgumentParser(description='MMDet benchmark a model')
     parser.add_argument('config', help='test config file path')

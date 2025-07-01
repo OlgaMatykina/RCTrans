@@ -48,6 +48,9 @@ class BlockChunk(nn.ModuleList):
         return x
 
 
+from mmdet3d.models.builder import BACKBONES
+
+@BACKBONES.register_module()
 class DinoVisionTransformer(nn.Module):
     def __init__(
         self,
@@ -162,10 +165,10 @@ class DinoVisionTransformer(nn.Module):
             self.chunked_blocks = False
             self.blocks = nn.ModuleList(blocks_list)
 
-        # self.norm = norm_layer(embed_dim)
+        self.norm = norm_layer(embed_dim)
         self.head = nn.Identity()
 
-        self.mask_token = nn.Parameter(torch.zeros(1, embed_dim))
+        # self.mask_token = nn.Parameter(torch.zeros(1, embed_dim))
 
         self.init_weights()
 
