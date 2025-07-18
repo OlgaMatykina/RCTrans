@@ -28,7 +28,7 @@ class_names = [
 
 # num_gpus = 8
 num_gpus = 1
-batch_size = 12
+batch_size = 8
 num_iters_per_epoch = 28130 // (num_gpus * batch_size)
 # num_iters_per_epoch = 81 // (num_gpus * batch_size)
 num_epochs = 90
@@ -311,7 +311,7 @@ optimizer = dict(
     weight_decay=0.01)
 
 # optimizer_config = dict(type='Fp16OptimizerHook', loss_scale='dynamic', grad_clip=dict(max_norm=35, norm_type=2))
-optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=3, grad_clip=dict(max_norm=35, norm_type=2))
+optimizer_config = dict(type='GradientCumulativeFp16OptimizerHook', loss_scale='dynamic', cumulative_iters=4, grad_clip=dict(max_norm=35, norm_type=2))
 # learning policy
 # lr_config = dict(
 #     policy='CosineAnnealing',
@@ -334,7 +334,8 @@ runner = dict(type='EpochBasedRunner', max_epochs=num_epochs)
 # load_from='ckpts/res18.pth'
 # load_from='work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
 # load_from='/home/docker_rctrans/RCTrans/work_dirs/tmp/epoch_1.pth'
-load_from='ckpts/res18.pth'
+# load_from='ckpts/res18.pth'
+load_from='work_dirs/backbone_dinov2s/best_pts_bbox_NuScenes/NDS_epoch_2.pth'
 # resume_from='/home/docker_rctrans/RCTrans/work_dirs/dino/latest.pth'
 # resume_from='/home/docker_rctrans/RCTrans/work_dirs/dinov2_with_resnet_from_res18_freezed/epoch_5.pth'
 resume_from=None

@@ -96,8 +96,7 @@ bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dino_res50
 
 bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dinov2.py 1 --work-dir work_dirs/backbone_dinov2s/
 
-
-
+bash tools/dist_train.sh projects/configs/RCTrans/rcdetr_90e_256×704_dinov2.py 1 --work-dir work_dirs/backbone_dinov2s_cont/
 
 ```
 Evaluation
